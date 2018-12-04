@@ -33,8 +33,8 @@
  *
  ****************************************************************************/
 
-#ifndef __SONY_APPS_INCLUDE_AUDIOUTIL_AUDIO_RECORDER_API_H
-#define __SONY_APPS_INCLUDE_AUDIOUTIL_AUDIO_RECORDER_API_H
+#ifndef __MODULES_INCLUDE_AUDIO_AUDIO_RECORDER_API_H
+#define __MODULES_INCLUDE_AUDIO_AUDIO_RECORDER_API_H
 
 /**
  * @defgroup audioutils Audio Utility
@@ -56,6 +56,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+
+#include "audio/audio_common_defs.h"
+#include "audio/audio_object_common_api.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -107,6 +110,10 @@ typedef enum
   /*! \brief Deactivate */
 
   AsRecorderEventDeact,
+
+  /*! \brief SetMicGain */
+
+  AsRecorderEventSetMicGain
 
 } AsRecorderEvent;
 
@@ -329,6 +336,20 @@ typedef struct
 
 } AsInitRecorderParam;
 
+typedef struct
+{
+  /*! \brief [in] Mic gain
+   * 
+   *  Analog microphone can set every 0.5 dB between 0 dB and 21 dB.
+   *  In this parameter, a value from 0 to 210 is set for every 5.
+   *
+   *  Digital microphone can set every 0.01 dB between 78.50 dB and 0.00 dB
+   *  In this parameter, a value from -7850 to 0 is set for every 1.
+   */
+
+  int16_t mic_gain[AS_MIC_CHANNEL_MAX];
+} AsRecorderMicGainParam;
+
 /** RecorderCommand definition */
 typedef union
 {
@@ -344,6 +365,12 @@ typedef union
    */
 
   AsInitRecorderParam init_param;
+
+  /*! \brief [in] for SetMicGain
+   * (Object Interface==AS_SetMicGainMediaRecorder)
+   */
+
+  AsRecorderMicGainParam set_micgain_param;
 
 } RecorderCommand;
 
@@ -486,7 +513,19 @@ bool AS_DeactivateMediaRecorder(void);
 
 bool AS_DeleteMediaRecorder(void);
 
-#endif  /* __SONY_APPS_INCLUDE_AUDIOUTIL_AUDIO_RECORDER_API_H */
+/**
+ * @brief Set mic gain for audio recorder
+ *
+ * @param[in] gain    : Mic gain
+ *
+ * @retval     true  : success
+ * @retval     false : failure
+ * @note Refer to AsRecorderMicGainParam for gain setting range.
+ */
+
+bool AS_SetMicGainMediaRecorder(FAR AsRecorderMicGainParam *micgain_param);
+
+#endif  /* __MODULES_INCLUDE_AUDIO_AUDIO_RECORDER_API_H */
 /**
  * @}
  */

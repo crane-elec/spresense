@@ -38,12 +38,21 @@
 
 /*--------------------------------------------------------------------------*/
 bool WavContainerFormat::init(uint16_t format_id,
-                             uint16_t channel_number,
-                             uint32_t sampling_rate)
+                              uint16_t channel_number,
+                              uint32_t sampling_rate)
+{
+  return init(format_id, channel_number, sampling_rate, BIT_WIDTH_16);
+}
+
+/*--------------------------------------------------------------------------*/
+bool WavContainerFormat::init(uint16_t format_id,
+                              uint16_t channel_number,
+                              uint32_t sampling_rate,
+                              uint8_t bitwidth)
 {
   switch (format_id)
     {
-      case FORMAT_ID_PCM:
+      case WAVE_FORMAT_PCM:
         break;
       default:
         return false;
@@ -87,6 +96,19 @@ bool WavContainerFormat::init(uint16_t format_id,
     }
   m_sampling_rate = sampling_rate;
 
+  switch (bitwidth)
+    {
+      case BIT_WIDTH_16:
+      case BIT_WIDTH_24:
+      case BIT_WIDTH_32:
+        break;
+
+      default:
+        return false;
+    }
+
+  m_bitwidth = bitwidth;
+
   return true;
 }
 
@@ -98,17 +120,17 @@ bool WavContainerFormat::getHeader(WAVHEADER *wav_header, uint32_t data_size)
       return false;
     }
 
-  memcpy(wav_header->riff, CHUNKID_RIFF,    strlen(CHUNKID_RIFF));
-  memcpy(wav_header->wave, FORMAT_WAVE,     strlen(FORMAT_WAVE));
-  memcpy(wav_header->fmt,  SUBCHUNKID_FMT,  strlen(SUBCHUNKID_FMT));
-  memcpy(wav_header->data, SUBCHUNKID_DATA, strlen(SUBCHUNKID_DATA));
-  wav_header->fmt_size   = FMT_SIZE;
-  wav_header->format     = FORMAT_ID_PCM;
+  wav_header->riff       = CHUNKID_RIFF;
+  wav_header->wave       = FORMAT_WAVE;
+  wav_header->fmt        = SUBCHUNKID_FMT;
+  wav_header->data       = SUBCHUNKID_DATA;
+  wav_header->fmt_size   = FMT_CHUNK_SIZE;
+  wav_header->format     = WAVE_FORMAT_PCM;
   wav_header->channel    = m_channel_number;
   wav_header->rate       = m_sampling_rate;
   wav_header->avgbyte    = m_sampling_rate * m_channel_number * 2;
   wav_header->block      = m_channel_number * 2;
-  wav_header->bit        = 2 * 8;
+  wav_header->bit        = m_bitwidth;
   if (data_size == 0)
     {
       wav_header->total_size = 0;

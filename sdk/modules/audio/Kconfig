@@ -24,7 +24,7 @@ config AUDIOUTILS_PLAYER
 	select MEMUTILS_S_STL
 	select MEMUTILS_SIMPLE_FIFO
 	select AUDIOUTILS_DECODER
-	select AUDIOUTILS_POSTFILTER
+	select AUDIOUTILS_POSTPROC
 	select AUDIOUTILS_RENDERER
 	select AUDIOUTILS_DSP_DRIVER
 	---help---
@@ -130,6 +130,7 @@ config AUDIOUTILS_VOICE_COMMAND
 		Support Voice Command Feature
 
 if AUDIOUTILS_RECORDER
+
 config AUDIOUTILS_SRC
 	bool "Sampling Rate Converter"
 	default n

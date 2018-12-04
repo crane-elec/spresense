@@ -75,6 +75,7 @@
 #define I2C_TIMEOUT  (20*1000/CONFIG_USEC_PER_TICK) /* 20 mS */
 
 #define I2C_DEFAULT_FREQUENCY 400000
+#define I2C_FIFO_MAX_SIZE	    32
 
 #define I2C_INTR_ENABLE ((INTR_STOP_DET) | \
                          (INTR_TX_ABRT)  | \
@@ -98,6 +99,8 @@ struct cxd56_i2cdev_s
   sem_t            wait;       /* Place to wait for transfer completion */
   WDOG_ID          timeout;    /* watchdog to timeout when bus hung */
   uint32_t         frequency;  /* Current I2C frequency */
+  ssize_t          reg_buff_offset;
+  ssize_t          rw_size;
 
   struct i2c_msg_s *msgs;
 
@@ -390,12 +393,15 @@ static void cxd56_i2c_drainrxfifo(struct cxd56_i2cdev_s *priv)
 
   status = i2c_reg_read(priv, CXD56_IC_STATUS);
 
-  for (i = 0; i < msg->length && status & STATUS_RFNE; i++)
+  for (i = 0; i < priv->rw_size && status & STATUS_RFNE; i++)
     {
       dat            = i2c_reg_read(priv, CXD56_IC_DATA_CMD);
-      msg->buffer[i] = dat & 0xff;
+      msg->buffer[priv->reg_buff_offset + i] = dat & 0xff;
       status         = i2c_reg_read(priv, CXD56_IC_STATUS);
     }
+
+  priv->reg_buff_offset += priv->rw_size;
+
 }
 
 /****************************************************************************
@@ -488,41 +494,57 @@ static int cxd56_i2c_interrupt(int irq, FAR void *context, FAR void *arg)
  *   if the interrupt occurs when the writing request.
  *   Actual receiving data is in RX_FULL interrupt handler.
  *
+ * TODO : The argument "last" is not used.
  ****************************************************************************/
 
 static int cxd56_i2c_receive(struct cxd56_i2cdev_s *priv, int last)
 {
   struct i2c_msg_s *msg = priv->msgs;
-  int i;
+  int i, en;
+  ssize_t msg_length;
   irqstate_t flags;
+
+  priv->reg_buff_offset = 0;
 
   DEBUGASSERT(msg != NULL);
 
-  /* Support only for less than or equal to 32 bytes */
-
-  if (msg->length > 32)
+  for (msg_length = msg->length; msg_length > 0; msg_length -= priv->rw_size)
     {
-      return -EINVAL;
-    }
+      if (msg_length <= I2C_FIFO_MAX_SIZE)
+        {
+          priv->rw_size = msg_length;
+          en = 1;
+        }
+      else
+        {
+          priv->rw_size = I2C_FIFO_MAX_SIZE;
+          en = 0;
+        }
 
-  /* update threshold value of the receive buffer */
+      /* update threshold value of the receive buffer */
+      i2c_reg_write(priv, CXD56_IC_RX_TL, priv->rw_size - 1);
 
-  i2c_reg_write(priv, CXD56_IC_RX_TL, msg->length - 1);
+      for (i = 0; i < priv->rw_size - 1; i++)
+        {
+          i2c_reg_write(priv, CXD56_IC_DATA_CMD, CMD_READ);
+        }
 
-  for (i = 0; i < msg->length - 1; i++)
-    {
-      i2c_reg_write(priv, CXD56_IC_DATA_CMD, CMD_READ);
-    }
+      flags = enter_critical_section();
+      wd_start(priv->timeout, I2C_TIMEOUT, cxd56_i2c_timeout, 1, (uint32_t)priv);
 
-  flags = enter_critical_section();
-  wd_start(priv->timeout, I2C_TIMEOUT, cxd56_i2c_timeout, 1, (uint32_t)priv);
+      /* Set stop flag for indicate the last data */
 
-  /* Set stop flag for indicate the last data */
+      i2c_reg_write(priv, CXD56_IC_DATA_CMD, CMD_READ | (en ? CMD_STOP : 0));
 
-  i2c_reg_write(priv, CXD56_IC_DATA_CMD, CMD_READ | (last ? CMD_STOP : 0));
+      i2c_reg_rmw(priv, CXD56_IC_INTR_MASK, INTR_RX_FULL, INTR_RX_FULL);
+      leave_critical_section(flags);
+      sem_wait(&priv->wait);
 
-  i2c_reg_rmw(priv, CXD56_IC_INTR_MASK, INTR_RX_FULL, INTR_RX_FULL);
-  leave_critical_section(flags);
+      if (priv->error != OK)
+        {
+          break;
+        }
+  }
 
   return 0;
 }
@@ -562,6 +584,8 @@ static int cxd56_i2c_send(struct cxd56_i2cdev_s *priv, int last)
   i2c_reg_rmw(priv, CXD56_IC_INTR_MASK, INTR_TX_EMPTY, INTR_TX_EMPTY);
   leave_critical_section(flags);
 
+  sem_wait(&priv->wait);
+
   return 0;
 }
 
@@ -571,6 +595,7 @@ static int cxd56_i2c_send(struct cxd56_i2cdev_s *priv, int last)
  * Description:
  *   Perform a sequence of I2C transfers
  *
+ * TODO: Multiple i2c_msg_s read operations with the same address are not currently guaranteed.
  ****************************************************************************/
 
 static int cxd56_i2c_transfer(FAR struct i2c_master_s *dev,
@@ -581,6 +606,7 @@ static int cxd56_i2c_transfer(FAR struct i2c_master_s *dev,
   int ret    = 0;
   int semval = 0;
   int addr = -1;
+  static int wostop = 0;
 
   DEBUGASSERT(dev != NULL);
 
@@ -606,7 +632,7 @@ static int cxd56_i2c_transfer(FAR struct i2c_master_s *dev,
       priv->msgs  = msgs;
       priv->error = OK;
 
-      if (addr != msgs->addr)
+      if ((addr != msgs->addr) && !wostop)
         {
           cxd56_i2c_disable(priv);
 
@@ -619,23 +645,30 @@ static int cxd56_i2c_transfer(FAR struct i2c_master_s *dev,
           addr = msgs->addr;
         }
 
-      if (msgs->flags & I2C_M_READ)
+      if (msgs->flags & I2C_M_NOSTOP)
         {
-          ret = cxd56_i2c_receive(priv, i + 1 == count);
+          /* Don't send stop condition even if the last data */
+
+          wostop = 1;
         }
       else
         {
-          ret = cxd56_i2c_send(priv, i + 1 == count);
+          wostop = 0;
+        }
+
+      if (msgs->flags & I2C_M_READ)
+        {
+          ret = cxd56_i2c_receive(priv, (wostop) ? 0 : (i + 1 == count));
+        }
+      else
+        {
+          ret = cxd56_i2c_send(priv, (wostop) ? 0 : (i + 1 == count));
         }
 
       if (ret < 0)
         {
           break;
         }
-
-      /* Wait for interrupts of each transfer */
-
-      sem_wait(&priv->wait);
 
       if (priv->error != OK)
         {
@@ -648,7 +681,10 @@ static int cxd56_i2c_transfer(FAR struct i2c_master_s *dev,
       priv->msgs = NULL;
     }
 
-  cxd56_i2c_disable(priv);
+  if (!wostop)
+    {
+      cxd56_i2c_disable(priv);
+    }
 
   /* Enable clock gating (clock disable) */
 

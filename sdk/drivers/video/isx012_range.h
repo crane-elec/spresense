@@ -122,16 +122,16 @@
 
 /* Definition for control gamma curve */
 
-#define ISX012_TYPE_GAMMACURVE      V4L2_CTRL_TYPE_U8
+#define ISX012_TYPE_GAMMACURVE      V4L2_CTRL_TYPE_U16
 #define ISX012_NAME_GAMMACURVE      "Gamma adjustment(curve)"
 #define ISX012_DEF_GAMMACURVE       (0)
 #define ISX012_MIN_GAMMACURVE       (0)
-#define ISX012_MAX_GAMMACURVE       (255)
+#define ISX012_MAX_GAMMACURVE       (511)
 #define ISX012_STEP_GAMMACURVE      (1)
 #define ISX012_ELEMSIZE_GAMMACURVE  (1)
 #define ISX012_ELEMS_GAMMACURVE     (19)
 #define ISX012_REG_GAMMACURVE       GAMMA_BASE
-#define ISX012_SIZE_GAMMACURVE      (1)
+#define ISX012_SIZE_GAMMACURVE      (2)
 
 
 /* Definition for control exposure value */
@@ -224,25 +224,29 @@
 
 /* Definition for control auto exposure */
 
-#define ISX012_TYPE_EXPOSUREAUTO    V4L2_CTRL_TYPE_INTEGER
-#define ISX012_NAME_EXPOSUREAUTO    "Auto Exposure"
-#define ISX012_DEF_EXPOSUREAUTO     (0)
-#define ISX012_MIN_EXPOSUREAUTO     (0)
-#define ISX012_MAX_EXPOSUREAUTO     (1)
-#define ISX012_STEP_EXPOSUREAUTO    (1)
-#define ISX012_REG_EXPOSUREAUTO     SHT_PREMODE_TYPE1 
-#define ISX012_SIZE_EXPOSUREAUTO    (2)
+#define ISX012_TYPE_EXPOSUREAUTO         V4L2_CTRL_TYPE_INTEGER
+#define ISX012_NAME_EXPOSUREAUTO         "Auto Exposure"
+#define ISX012_DEF_EXPOSUREAUTO          (0)
+#define ISX012_MIN_EXPOSUREAUTO          (0)
+#define ISX012_MAX_EXPOSUREAUTO          (1)
+#define ISX012_STEP_EXPOSUREAUTO         (1)
+
+#define ISX012_REG_EXPOSUREAUTOVALUE_LSB SHT_TIME_AUTO_L
+#define ISX012_REG_EXPOSUREAUTOVALUE_MSB SHT_TIME_AUTO_H
+#define ISX012_SIZE_EXPOSUREAUTOVALUE    (2)
 
 /* Definition for control exposure time */
 
 #define ISX012_TYPE_EXPOSURETIME    V4L2_CTRL_TYPE_INTEGER
 #define ISX012_NAME_EXPOSURETIME    "Exposure time(usec)"
 #define ISX012_DEF_EXPOSURETIME     (0)
-#define ISX012_MIN_EXPOSURETIME     (0)
-#define ISX012_MAX_EXPOSURETIME     (255)
+#define ISX012_MIN_EXPOSURETIME     (1)
+#define ISX012_MAX_EXPOSURETIME     (10000)
 #define ISX012_STEP_EXPOSURETIME    (1)
 #define ISX012_REG_EXPOSURETIME     SHT_PREMODE_TYPE1
 #define ISX012_SIZE_EXPOSURETIME    (2)
+
+#define ISX012_UNIT_EXPOSURETIME_US (100)
 
 /* Definition for control photometry */
 

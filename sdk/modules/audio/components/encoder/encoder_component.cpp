@@ -41,7 +41,7 @@
 
 #include "memutils/message/Message.h"
 #include "memutils/message/MsgPacket.h"
-#include "common/audio_internal_message_types.h"
+#include "audio/audio_message_types.h"
 #include "dsp_driver/include/dsp_drv.h"
 #include "apus/dsp_audio_version.h"
 #include "wien2_internal_packet.h"
@@ -370,13 +370,29 @@ uint32_t EncoderComponent::init_apu(const InitEncParam& param, uint32_t *dsp_inf
 
   send_apu(p_apu_cmd);
 
-  uint32_t rst = dsp_init_check(m_apu_dtq, dsp_inf);
+  /* Wait init completion and receive reply information */
+
+  Apu::InternalResult internal_result;
+  uint32_t rst = dsp_init_check(m_apu_dtq, &internal_result);
+  *dsp_inf = internal_result.value;
+
   return rst;
 }
 
 /*--------------------------------------------------------------------*/
 bool EncoderComponent::exec_apu(const ExecEncParam& param)
 {
+  /* Encode data area check */
+
+  if ((param.input_buffer.p_buffer == NULL)
+   || (param.output_buffer.p_buffer == NULL))
+    {
+      FILTER_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
+      return false;
+    }
+
+  /* Execute encode */
+
   Apu::Wien2ApuCmd* p_apu_cmd = static_cast<Apu::Wien2ApuCmd*>(getApuCmdBuf());
 
   if (p_apu_cmd == NULL)
@@ -400,6 +416,12 @@ bool EncoderComponent::exec_apu(const ExecEncParam& param)
 /*--------------------------------------------------------------------*/
 bool EncoderComponent::flush_apu(const StopEncParam& param)
 {
+  /* Regardless of output buffer is not allocated, send Flush Request
+   * to DSP. Because it is needed by DSP to finish process correctly.
+   */
+
+  /* Flush */
+
   Apu::Wien2ApuCmd* p_apu_cmd = static_cast<Apu::Wien2ApuCmd*>(getApuCmdBuf());
 
   if (p_apu_cmd == NULL)
@@ -432,7 +454,11 @@ bool EncoderComponent::recv_apu(void *p_response)
 
   if (Apu::InitEvent == packet->header.event_type)
     {
-      dsp_init_complete(m_apu_dtq, packet);
+      /* Notify init completion to myself */
+
+      Apu::InternalResult internal_result = packet->result.internal_result[0];
+      dsp_init_complete(m_apu_dtq, packet->result.exec_result, &internal_result);
+
       return true;
     }
 

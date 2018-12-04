@@ -40,7 +40,7 @@
 #include <arch/chip/cxd56_audio.h>
 #include "attention.h"
 #include "wien2_common_defs.h"
-#include "common/audio_internal_message_types.h"
+#include "audio/audio_message_types.h"
 #include "memutils/s_stl/queue.h"
 #include "wien2_internal_packet.h"
 
@@ -101,6 +101,9 @@ private:
     m_player_transition_count(0),
     m_input_en(false),
     m_output_en(false)
+#ifdef AS_FEATURE_OUTPUTMIX_ENABLE
+    , m_output_device(HPOutputDevice)
+#endif /* AS_FEATURE_OUTPUTMIX_ENABLE */
   {
   };
 
@@ -141,13 +144,17 @@ private:
   bool m_input_en;
   bool m_output_en;
 
+#ifdef AS_FEATURE_OUTPUTMIX_ENABLE
+  AsOutputMixDevice m_output_device;
+#endif /* AS_FEATURE_OUTPUTMIX_ENABLE */
+
   typedef void (AudioManager::*MsgProc)(AudioCommand &cmd);
   typedef void (AudioManager::*RstProc)(const AudioMngCmdCmpltResult &result);
   static MsgProc MsgProcTbl[AUD_MGR_MSG_NUM][MNG_ALLSTATE_NUM];
   static RstProc RstProcTbl[1][AS_MNG_STATUS_NUM];
 
   void run(void);
-  void parse(FAR MsgPacket *);
+  void parse(FAR MsgPacket *, FAR MsgQueBlock *);
 
   void illegal(AudioCommand &cmd);
   void ignore(AudioCommand &cmd);
@@ -181,6 +188,7 @@ private:
   void setThroughStatus(AudioCommand &cmd);
   void setThroughPath(AudioCommand &cmd);
   void getstatus(AudioCommand &cmd);
+  void setSpDrvMode(AudioCommand &cmd);
 
   void illegalCmplt(const AudioMngCmdCmpltResult &cmd);
   void cmpltOnReady(const AudioMngCmdCmpltResult &cmd);

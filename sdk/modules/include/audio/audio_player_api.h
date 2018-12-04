@@ -33,8 +33,8 @@
  *
  ****************************************************************************/
 
-#ifndef __SONY_APPS_INCLUDE_AUDIOUTIL_AUDIO_PLAYER_API_H
-#define __SONY_APPS_INCLUDE_AUDIOUTIL_AUDIO_PLAYER_API_H
+#ifndef __MODULES_INCLUDE_AUDIO_AUDIO_PLAYER_API_H
+#define __MODULES_INCLUDE_AUDIO_AUDIO_PLAYER_API_H
 
 /**
  * @defgroup audioutils Audio Utility
@@ -58,7 +58,7 @@
 #include <stdbool.h>
 
 #include "audio/audio_common_defs.h"
-
+#include "audio/audio_object_common_api.h"
 #include "memutils/memory_manager/MemHandle.h"
 #include "memutils/message/MsgPacket.h"
 
@@ -66,8 +66,16 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
+/* Enable player feature. */
+
 #define AS_FEATURE_PLAYER_ENABLE
 
+/* Need to enable mixer feature when player feature is enabled.
+ * Because player feature always use mixer feature.
+ */
+
+#define AS_FEATURE_OUTPUTMIX_ENABLE
+  
 /** @name Packet length of player command*/
 /** @{ */
 
@@ -102,6 +110,10 @@
 /*! \brief Set audio gain leve command ("AUDCMD_SETGAIN)packet length */
 
 #define LENGTH_SET_GAIN (2)
+
+/*! \brief Send Pfcommand command ("AUDCMD_SENDPOSTCMD") packet length */
+
+#define LENGTH_SENDPOSTCMD (10)
 
 /** @} */
 
@@ -353,17 +365,17 @@ typedef struct
 
   uint8_t  active_player;
 
+  /*! \brief [in] post DSP 0 enable */
+
+  uint8_t  post0_enable;
+
+  /*! \brief [in] post DSP 1 enable */
+
+  uint8_t  post1_enable;
+
   /*! \brief [in] reserved */
 
   uint8_t  reserve0;
-
-  /*! \brief [in] reserved */
-
-  uint8_t  reserve1;
-
-  /*! \brief [in] reserved */
-
-  uint8_t  reserve2;
 
   /*! \brief [in] Activation parameters for player0 */
 
@@ -562,20 +574,6 @@ typedef struct
   };
 } PlayerCommand;
 
-/** Request Clock Recovery Command (#AUDCMD_CLKRECOVERY) parameter */
-
-typedef struct
-{
-  /*! \brief [in] Handle of OutputMixer */
-
-  uint8_t  player_id;
-
-  int8_t   direction;
-
-  uint32_t times;
-
-} AsPlayerClockRecovery;
-
 /** Message queue ID parameter of activate function */
 
 typedef struct
@@ -766,7 +764,7 @@ bool AS_DeactivatePlayer(AsPlayerId id, FAR AsDeactivatePlayer *deactparam);
 
 bool AS_DeletePlayer(AsPlayerId id);
 
-#endif  /* __SONY_APPS_INCLUDE_AUDIOUTIL_AUDIO_PLAYER_API_H */
+#endif  /* __MODULES_INCLUDE_AUDIO_AUDIO_PLAYER_API_H */
 /**
  * @}
  */

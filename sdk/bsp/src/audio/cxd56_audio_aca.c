@@ -269,6 +269,8 @@ typedef enum
   AS_ACA_INIT_AMIC,
   AS_ACA_SET_AMIC_BOOT_DONE,
   AS_ACA_SET_OUTPUT_DEVICE,
+  AS_ACA_GET_REGISTER,
+  AS_ACA_SET_REGISTER,
   AS_ACA_CONTROL_TYPE_NUM
 } AsAcaControlType;
 
@@ -311,6 +313,13 @@ typedef struct
   asAcaSpSplitonSelId   spSpliton;
   asAcaSpDrvSelId       spDrv;
 } asAcaPulcoOutParam;
+
+typedef struct
+{
+  uint32_t bank;
+  uint32_t addr;
+  uint32_t value;
+} asAcaPulcoRegParam;
 
 typedef struct
 {
@@ -485,19 +494,19 @@ static void get_sp_split_on(uint8_t cf_sp_spliton, FAR asAcaSpSplitonSelId *spSp
 }
 
 /*--------------------------------------------------------------------------*/
-static void get_sp_drive(uint8_t cfg_sp_drv, FAR asAcaSpDrvSelId *spDrv)
+static void get_sp_driver(uint8_t cfg_sp_drv, FAR asAcaSpDrvSelId *spDrv)
 {
   switch (cfg_sp_drv)
     {
-      case CXD56_AUDIO_CFG_SP_DRV_LINEOUT:
+      case CXD56_AUDIO_SP_DRV_LINEOUT:
         *spDrv = AS_ACA_SP_DRV_SEL_LINEOUT;
         break;
 
-      case CXD56_AUDIO_CFG_SP_DRV_1DRIVER:
+      case CXD56_AUDIO_SP_DRV_1DRIVER:
         *spDrv = AS_ACA_SP_DRV_SEL_1DRIVER;
         break;
 
-      case CXD56_AUDIO_CFG_SP_DRV_2DRIVER:
+      case CXD56_AUDIO_SP_DRV_2DRIVER:
         *spDrv = AS_ACA_SP_DRV_SEL_2DRIVER;
         break;
 
@@ -617,7 +626,7 @@ void get_pwon_out_param(asAcaPulcoOutParam *param)
   param->spDlyFree = AS_ACA_SP_DLY_FREE_UNKNOWN;
 
   get_sp_split_on((uint8_t)CXD56_AUDIO_CFG_SP_SPLIT_ON, &param->spSpliton);
-  get_sp_drive((uint8_t)CXD56_AUDIO_CFG_SP_DRIVE, &param->spDrv);
+  get_sp_driver((uint8_t)cxd56_audio_config_get_spdriver(), &param->spDrv);
 }
 
 /****************************************************************************
@@ -784,6 +793,19 @@ CXD56_AUDIO_ECODE cxd56_audio_aca_notify_micbootdone(void)
       return CXD56_AUDIO_ECODE_ANA_NOTIFY_MICBOOT;
     }
 
+  return CXD56_AUDIO_ECODE_OK;
+}
+
+/*--------------------------------------------------------------------------*/
+CXD56_AUDIO_ECODE cxd56_audio_aca_read_reg(asAcaPulcoRegParam *param)
+{
+  AS_AcaControl(AS_ACA_GET_REGISTER, (uint32_t)param);
+  return CXD56_AUDIO_ECODE_OK;
+}
+
+CXD56_AUDIO_ECODE cxd56_audio_aca_write_reg(asAcaPulcoRegParam *param)
+{
+  AS_AcaControl(AS_ACA_SET_REGISTER, (uint32_t)param);
   return CXD56_AUDIO_ECODE_OK;
 }
 

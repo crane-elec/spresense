@@ -1,0 +1,47 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_FFT
+	bool "FFT Example"
+	default n
+	depends on ASMP && EXTERNALS_CMSIS_DSP
+	---help---
+		Fast Fourier Transform offload to DSP
+
+if EXAMPLES_FFT
+
+choice
+	prompt "FFT Input Data"
+	default EXAMPLES_FFT_REAL_DATA
+
+config EXAMPLES_FFT_REAL_DATA
+	bool "Real data"
+
+config EXAMPLES_FFT_COMPLEX_DATA
+	bool "Complex data"
+
+endchoice
+
+config EXAMPLES_FFT_DSP_PATH
+	string "DSP ELF file path"
+	default "/mnt/sd0/BIN/DSPFFT"
+	---help---
+		Set path to DSPFFT worker program ELF file on the board.
+
+config EXAMPLES_FFT_SAMPLES_WORK_BUFFER_SIZE
+	hex "Work buffer size"
+	default 0x2000
+	---help---
+		The work buffer for FFT calculation. The actual memory size
+		is CONFIG_EXAMPLES_FFT_SAMPLES_WORK_BUFFER_SIZE x 4 bytes.
+
+config EXAMPLES_FFT_SAMPLES_INPUT_BUFFER_SIZE
+	hex "Input buffer size"
+	default 0x1000
+	---help---
+		The input buffer for FFT calculation. The actual memory size
+		is CONFIG_EXAMPLES_FFT_SAMPLES_INPUT_BUFFER_SIZE x 4 bytes.
+
+endif # EXAMPLES_FFT

@@ -44,7 +44,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
-
+#include <arch/board/board.h>
 #include <asmp/mpshm.h>
 #include <arch/chip/pm.h>
 #include <sys/stat.h>
@@ -313,20 +313,6 @@ static bool app_set_through_path(audio_through_test_path_e path_type)
   return printAudCmdResult(command.header.command_code, result);
 }
 
-static bool app_init_output_select(void)
-{
-  AudioCommand command;
-  command.header.packet_length = LENGTH_INITOUTPUTSELECT;
-  command.header.command_code  = AUDCMD_INITOUTPUTSELECT;
-  command.header.sub_code      = 0;
-  command.init_output_select_param.output_device_sel = AS_OUT_SP;
-  AS_SendAudioCommand(&command);
-
-  AudioResult result;
-  AS_ReceiveAudioResult(&result);
-  return printAudCmdResult(command.header.command_code, result);
-}
-
 static bool app_init_mic_gain(void)
 {
   AudioCommand command;
@@ -470,14 +456,6 @@ extern "C" int audio_through_main(int argc, char *argv[])
       return 1;
     }
 
-  /* Initialize Speaker Out */
-
-    if (!app_init_output_select())
-    {
-      printf("Error: app_init_output_select() failure.\n");
-      return 1;
-    }
-
   /* Set through operation mode. */
 
   if (!app_set_through_status())
@@ -506,6 +484,14 @@ extern "C" int audio_through_main(int argc, char *argv[])
 
   for (int type = 0; type < TEST_PATH_NUM; type++)
     {
+       /* Set output mute. */
+
+       if (board_external_amp_mute_control(true) != OK)
+         {
+           printf("Error: board_external_amp_mute_control(true) failuer.\n");
+           return 1;
+         }
+
       if (!app_set_through_path((audio_through_test_path_e)type))
         {
           printf("Error: app_set_through_path() failure.\n");
@@ -524,6 +510,12 @@ extern "C" int audio_through_main(int argc, char *argv[])
               printf("Error: app_set_volume() failure.\n");
               return 1;
             }
+
+          if (board_external_amp_mute_control(false) != OK)
+            {
+              printf("Error: board_external_amp_mute_control(false) failuer.\n");
+              return 1;
+            }
         }
 
       /* Running... */
@@ -538,6 +530,14 @@ extern "C" int audio_through_main(int argc, char *argv[])
 
       app_set_mute();
     } 
+
+  /* Set output mute. */
+
+  if (board_external_amp_mute_control(true) != OK)
+    {
+      printf("Error: board_external_amp_mute_control(true) failuer.\n");
+      return 1;
+    }
 
   /* Return the state of AudioSubSystem before voice_call operation. */
 

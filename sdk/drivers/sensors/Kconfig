@@ -11,7 +11,6 @@ if SENSORS
 config BMI160
 	bool "Bosch BMI160 Sensor support"
 	default n
-	select CXD56_SPI
 	---help---
 		Enable driver support for the Bosch BMI160 sensor.
 
@@ -181,13 +180,25 @@ config KX122
 endif # KX022
 
 config BM1422GMV
-	bool "Rohm BM1422GMV Magnetic Sensor"
+	bool "Rohm BM1422GMV/BM1422AGMV Magnetic Sensor"
 	default n
 	select CXD56_I2C
 	---help---
-		Enable driver for BM1422GMV magnetic sensor.
+		Enable driver for BM1422GMV/BM1422AGMV magnetic sensor.
 
 if BM1422GMV
+
+choice
+	prompt "Slave Address"
+	default BM1422GMV_SLAVE_ADDRESS_0F
+
+config BM1422GMV_SLAVE_ADDRESS_0E
+	bool "0x0E"
+
+config BM1422GMV_SLAVE_ADDRESS_0F
+	bool "0x0F"
+
+endchoice
 
 config BM1422GMV_SCU
 	bool "SCU Sequencer"
@@ -199,11 +210,11 @@ config BM1422GMV_SCU
 endif # BM1422GMV
 
 config BM1383GLV
-	bool "Rohm BM1383GLV Pressure Sensor"
+	bool "Rohm BM1383GLV/BM1383AGLV Pressure Sensor"
 	default n
 	select CXD56_I2C
 	---help---
-		Enable driver for BM1383GLV pressure sensor.
+		Enable driver for BM1383GLV/BM1383AGLV pressure sensor.
 
 if BM1383GLV
 

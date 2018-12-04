@@ -259,6 +259,13 @@ bool AS_CreateRenderer(FAR AsCreateRendererParam_t *param)
   s_self_dtq[0]      = dev0_self_dtq;
   s_self_sync_dtq[0] = dev0_self_sync_dtq;
 
+  /* Reset Message queue. */
+
+  FAR MsgQueBlock *que;
+  err_t err_code = MsgLib::referMsgQueBlock(dev0_self_dtq, &que);
+  F_ASSERT(err_code == ERR_OK);
+  que->reset();
+
   s_render_pid[0] = task_create("RENDER_CMP_DEV0",
                                 200,
                                 1024 * 2,
@@ -291,6 +298,12 @@ bool AS_CreateRenderer(FAR AsCreateRendererParam_t *param)
 
       s_self_dtq[1]      = dev1_self_dtq;
       s_self_sync_dtq[1] = dev1_self_sync_dtq;
+
+      /* Reset Message queue. */
+
+      err_code = MsgLib::referMsgQueBlock(dev1_self_dtq, &que);
+      F_ASSERT(err_code == ERR_OK);
+      que->reset();
 
       s_render_pid[1] = task_create("RENDER_CMP_DEV1",
                                     200,
@@ -420,11 +433,6 @@ bool AS_get_render_comp_handler(RenderComponentHandler *p_handle,
       param.act_render_param.sel_info.cod_insel3  = true;
       param.act_render_param.sel_info.src1in_sel  = false;
       param.act_render_param.sel_info.src2in_sel  = false;
-    }
-
-  if (device_type == RenderDeviceI2S)
-    {
-      param.act_render_param.sel_info.src1in_sel  = true;
     }
 
   if (!s_pFactory->parse(*p_handle, MSG_AUD_BB_CMD_ACT, param))
