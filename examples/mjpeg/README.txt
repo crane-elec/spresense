@@ -1,0 +1,48 @@
+examples/mjpeg
+^^^^^^^^^^^^^^^
+
+  This sample code create Motion-JPEG file by collecting JPEG data from the image sensor.
+
+  Supported image sensor is ISX012 and will work with the official Spresense camera board.
+
+
+  This example can be used with the Motion-JPEG example default configuration
+
+  $ ./tools/config.py examples/mjpeg
+
+  This example can also output captured images to an LCD directly.
+  If you want to work with LCD devices, configure like this:
+
+  $ ./tools/config.py examples/mjpeg device/lcd
+
+  And enable following option in /sdk/configs/device/mjpeg-defconfig
+
+  CONFIG_EXAMPLES_MJPEG_OUTPUT_LCD=y
+  
+  Currently supports ili9340 and lpm013m091a based displays.
+  
+  Default resolution is 320x240.  
+  This can be modified in the LCD driver code at /sdk/drivers/lcd/ili9340.c
+
+  The LCD is expected to be connected on SPI4 (expansion board) or SPI5 (main board) 
+  
+  To use an LCD connected to the expansion board, set the following option in /sdk/configs/device/mjpeg-defconfig
+  CONFIG_LCD_ON_EXTENSION_BOARD=y
+  
+  To use an LCD connected to the main board (the Spresense itself), set the following option in /sdk/configs/device/camera-defconfig
+  CONFIG_LCD_ON_MAIN_BOARD=y
+  
+  The example will capture images to an SD card if one is connected to the expansion board, otherwise it will save to flash memory.
+  
+  Execute under nsh:
+
+  nsh> camera
+  FILENAME:/mnt/sd0/MJPEG001.AVI
+
+  * Display to LCD
+
+  nsh> camera
+  nximage_initialize: Initializing LCD
+  nximage_initialize: Open NX
+  nximage_initialize: Screen resolution (320,240)
+  FILENAME:/mnt/sd0/MJPEG001.AVI

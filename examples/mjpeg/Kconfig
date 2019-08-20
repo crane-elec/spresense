@@ -1,0 +1,33 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_MJPEG
+	bool "Motion JPEG example"
+	default n
+	---help---
+		Enable the camera example
+
+if EXAMPLES_MJPEG
+
+config EXAMPLES_MJPEG_PROGNAME
+	string "Program name"
+	default "mjpeg"
+	depends on BUILD_KERNEL
+	---help---
+		This is the name of the program that will be use when the NSH ELF
+		program is installed.
+
+config EXAMPLES_MJPEG_PRIORITY
+	int "Camera task priority"
+	default 100
+
+config EXAMPLES_MJPEG_STACKSIZE
+	int "Camera stack size"
+	default 2048
+
+config EXAMPLES_MJPEG_OUTPUT_LCD
+	bool "Output LCD"
+
+endif
