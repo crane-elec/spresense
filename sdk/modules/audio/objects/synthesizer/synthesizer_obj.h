@@ -1,7 +1,7 @@
 /****************************************************************************
- * modules/audio/include/apus/apu_cmd_defs.h
+ * modules/audio/objects/synthesizer/synthesizer_obj.h
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2019 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,17 +33,23 @@
  *
  ****************************************************************************/
 
-#ifndef __MODULES_AUDIO_INCLUDE_APUS_APU_CMD_DEFS_H
-#define __MODULES_AUDIO_INCLUDE_APUS_APU_CMD_DEFS_H
+#ifndef __MODULES_AUDIO_OBJECTS_MEDIA_RECORDER_MEDIA_RECORDER_OBJ_H
+#define __MODULES_AUDIO_OBJECTS_MEDIA_RECORDER_MEDIA_RECORDER_OBJ_H
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include "wien2_common_defs.h"
+#include "memutils/os_utils/chateau_osal.h"
+#include "memutils/message/Message.h"
+#include "memutils/s_stl/queue.h"
+#include "memutils/memory_manager/MemHandle.h"
+#include "audio/audio_high_level_api.h"
+#include "audio/audio_message_types.h"
+#include "components/oscillator/oscillator_component.h"
+#include "audio_state.h"
 
 __WIEN2_BEGIN_NAMESPACE
-__APU_BEGIN_NAMESPACE
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -53,75 +59,55 @@ __APU_BEGIN_NAMESPACE
  * Public Types
  ****************************************************************************/
 
-enum ApuEventType
-{
-  InvalidApuEvent = 0xFF,
-  BootEvent = 0,
-  InitEvent,
-  ExecEvent,
-  FlushEvent,
-  SetParamEvent,
-  TuningEvent,
-  ErrorEvent,
-  ApuEventTypeNum
-};
+class SynthsizerObject {
+public:
+  static void create(AsSynthsizerMsgQueId_t msgq_id,
+                     AsSynthsizerPoolId_t pool_id);
 
-enum ApuProcessMode
-{
-  InvalidApuProcessMode = 0xFF,
-  CommonMode = 0,
-  DecMode,
-  FilterMode,
-  EncMode,
-  RecognitionMode,
-  OscMode,
-  ApuProcessModeNum
-};
+private:
+  SynthsizerObject(AsSynthsizerMsgQueId_t msgq_id,
+                   AsSynthsizerPoolId_t pool_id);
+    m_msgq_id(msgq_id),
+    m_pool_id(pool_id),
+  {}
 
-enum ApuFlushType
-{
-  InvalidApuFlushType = (-1),
-  Clear = 0,
-  Purge,
-  ApuFlushTypeNum
-};
+  enum SynthsizerState_e
+  {
+    SynthsizerStateInactive = 0,
+    SynthsizerStateReady,
+    SynthsizerStateExecute,
+    SynthsizerStateStopping,
+    SynthsizerStateErrorStopping,
+    SynthsizerStateWaitStop,
+    SynthsizerStateNum
+  };
 
-enum ApuFilterType
-{
-  InvalidApuFilterType = 0xFF,
-  SRC = 0,
-  Downmix,
-  MFE,
-  XLOUD,
-  BitWidthConv,
-  ApuFilterTypeNum
-};
+  AsSynthsizerMsgQueId_t m_msgq_id;
+  AsSynthsizerPoolId_t   m_pool_id;
 
-enum ApuRecognitionType
-{
-  InvalidApuRecognitionType = (-1),
-  Vad = 0,
-  Wuwsr,
-  VadWuwsr,
-  FreqDet,
-  ApuRecognitionTypeNum
-};
+  AudioState<SynthsizerState_e> m_state;
 
-enum SetParamType
-{
-  InvalidSetParamType = 0xFF,
-  SetParamBF = 0,
-  SetParamNS,
-  SetParamAES,
-  SetParamREF,
-  SetParamMIC,
-  SetParamAGC,
-  SetParamEQ,
-  SetParamMFE,
-  SetDebugMFE,
-  SetParamXLOUD,
-  SetDebugXLOUD,
-  SetParamTypeNum
+  OscllicatorComponentHandler m_osc_hdlr;
+
+  SynthsizerCallback m_callback;
+
+  void run();
+  void parse(MsgPacket *);
+
+  void reply(AsRecorderEvent evtype,
+             MsgType msg_type,
+             uint32_t result);
+
+  void illegal(MsgPacket *);
+  void activate(MsgPacket *);
+  void deactivate(MsgPacket *);
+
+  void init(MsgPacket *);
+  void startOnReady(MsgPacket *);
+  void stopOnRec(MsgPacket *);
+  void stopOnErrorStop(MsgPacket *);
+  void stopOnWait(MsgPacket *);
+
 };
 
 /****************************************************************************
@@ -136,8 +122,7 @@ enum SetParamType
  * Public Function Prototypes
  ****************************************************************************/
 
-__APU_END_NAMESPACE
 __WIEN2_END_NAMESPACE
 
-#endif /* __MODULES_AUDIO_INCLUDE_APUS_APU_CMD_DEFS_H */
+#endif /* __MODULES_AUDIO_OBJECTS_MEDIA_RECORDER_MEDIA_RECORDER_OBJ_H */
 

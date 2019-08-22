@@ -152,6 +152,13 @@ enum AudioCodec
   AudCodecNum
 };
 
+enum WaveMode
+{
+  InvalidWave = 0xffffffff,
+  SinWave = 0,
+  WaveModeNum
+};
+
 struct BufferHeader
 {
   uint32_t size;
