@@ -1,7 +1,7 @@
 /****************************************************************************
- * modules/audio/include/apus/apu_cmd_defs.h
+ * modules/audio/objects/synthesizer/synthesizer_obj.cpp
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2019 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,111 +33,50 @@
  *
  ****************************************************************************/
 
-#ifndef __MODULES_AUDIO_INCLUDE_APUS_APU_CMD_DEFS_H
-#define __MODULES_AUDIO_INCLUDE_APUS_APU_CMD_DEFS_H
-
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include "wien2_common_defs.h"
+#include <stdlib.h>
+#include <nuttx/arch.h>
+#include <stdlib.h>
+#include <arch/chip/cxd56_audio.h>
+#include "memutils/common_utils/common_assert.h"
+#include "media_recorder_obj.h"
+#include "components/oscillator/oscillator_component.h"
+#include "debug/dbg_log.h"
 
-__WIEN2_BEGIN_NAMESPACE
-__APU_BEGIN_NAMESPACE
+__USING_WIEN2
+using namespace MemMgrLite;
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
 /****************************************************************************
- * Public Types
+ * Private Types
  ****************************************************************************/
 
-enum ApuEventType
-{
-  InvalidApuEvent = 0xFF,
-  BootEvent = 0,
-  InitEvent,
-  ExecEvent,
-  FlushEvent,
-  SetParamEvent,
-  TuningEvent,
-  ErrorEvent,
-  ApuEventTypeNum
-};
+/****************************************************************************
+ * Private Function Prototypes
+ ****************************************************************************/
 
-enum ApuProcessMode
-{
-  InvalidApuProcessMode = 0xFF,
-  CommonMode = 0,
-  DecMode,
-  FilterMode,
-  EncMode,
-  RecognitionMode,
-  OscMode,
-  ApuProcessModeNum
-};
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
 
-enum ApuFlushType
-{
-  InvalidApuFlushType = (-1),
-  Clear = 0,
-  Purge,
-  ApuFlushTypeNum
-};
+static pid_t s_rcd_pid;
+static AsSynthsizerMsgQueId_t s_msgq_id;
+static AsSynthsizerPoolId_t   s_pool_id;
 
-enum ApuFilterType
-{
-  InvalidApuFilterType = 0xFF,
-  SRC = 0,
-  Downmix,
-  MFE,
-  XLOUD,
-  BitWidthConv,
-  ApuFilterTypeNum
-};
-
-enum ApuRecognitionType
-{
-  InvalidApuRecognitionType = (-1),
-  Vad = 0,
-  Wuwsr,
-  VadWuwsr,
-  FreqDet,
-  ApuRecognitionTypeNum
-};
-
-enum SetParamType
-{
-  InvalidSetParamType = 0xFF,
-  SetParamBF = 0,
-  SetParamNS,
-  SetParamAES,
-  SetParamREF,
-  SetParamMIC,
-  SetParamAGC,
-  SetParamEQ,
-  SetParamMFE,
-  SetDebugMFE,
-  SetParamXLOUD,
-  SetDebugXLOUD,
-  SetParamTypeNum
-};
+static SynthsizerObject *s_syn_obj = NULL;
 
 /****************************************************************************
  * Public Data
  ****************************************************************************/
 
 /****************************************************************************
- * Inline Functions
+ * Private Functions
  ****************************************************************************/
 
-/****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
-
-__APU_END_NAMESPACE
-__WIEN2_END_NAMESPACE
-
-#endif /* __MODULES_AUDIO_INCLUDE_APUS_APU_CMD_DEFS_H */
 
