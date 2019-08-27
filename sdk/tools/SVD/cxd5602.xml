@@ -46,7 +46,7 @@
     <fpuPresent>true</fpuPresent>
     <nvicPrioBits>3</nvicPrioBits>
     <vendorSystickConfig>false</vendorSystickConfig>
-    <deviceNumInterrupts>128</deviceNumInterrupts>
+    <deviceNumInterrupts>144</deviceNumInterrupts>
   </cpu>
   <addressUnitBits>8</addressUnitBits>                            <!-- byte addressable memory -->
   <width>32</width>                                               <!-- bus width is 32 bits -->
@@ -75,8 +75,24 @@
 
     <!-- CPU FIFO -->
     <xi:include href="cpufifo.xml"/>
-  </peripherals>
 
+    <!-- UART -->
+    <xi:include href="uart1.xml"/>
+    <xi:include href="uart2.xml"/>
+
+    <!-- DMAC -->
+    <xi:include href="dmac1.xml"/>
+    <xi:include href="dmac3.xml"/>
+
+    <!-- SPI -->
+    <xi:include href="spi0.xml"/>
+    <xi:include href="spi3.xml"/>
+    <xi:include href="spi4.xml"/>
+    <xi:include href="spi5.xml"/>
+
+    <!-- CISIF -->
+    <xi:include href="cisif.xml"/>
+  </peripherals>
 
 </device>
 

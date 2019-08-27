@@ -114,32 +114,48 @@
 /** @name Command Effector Function code */
 /** @{ */
 
-  /*! brief Command Code: InitMFE (__not supported__) */
+/*! \brief Command Code: EnablePreProc */
 
-#define  AUDCMD_INITMFE       (AUDCMD_CATEGORY_EFFECTOR | 0x01)
+#define  AUDCMD_SETMFETYPE    (AUDCMD_CATEGORY_EFFECTOR | 0x01)
 
-/*! brief Command Code: InitMPP (__not supported__) */
+/*! \brief Command Code: InitMFE */
 
-#define  AUDCMD_INITMPP       (AUDCMD_CATEGORY_EFFECTOR | 0x02)
+#define  AUDCMD_INITMFE       (AUDCMD_CATEGORY_EFFECTOR | 0x02)
 
-/*! brief Command Code: SetMPPParam (__not supported__) */
+/*! \brief Command Code: SetMFE */
 
-#define  AUDCMD_SETMPPPARAM   (AUDCMD_CATEGORY_EFFECTOR | 0x03)
+#define  AUDCMD_SETMFE        (AUDCMD_CATEGORY_EFFECTOR | 0x03)
+
+/*! \brief Command Code: InitMPP */
+
+#define  AUDCMD_INITMPP       (AUDCMD_CATEGORY_EFFECTOR | 0x04)
+
+/*! \brief Command Code: SetMPPParam */
+
+#define  AUDCMD_SETMPPPARAM   (AUDCMD_CATEGORY_EFFECTOR | 0x05)
 
 /** @} */
 
 /** @name Effector Result code */
 /** @{ */
 
-/*! \brief Result Code: InitMFECmplt (__not supported__) */
+/*! \brief Result Code: EnableProProcessCmplt */
+
+#define  AUDRLT_ENPREPROCCMPLT  AUDCMD_SETMFETYPE
+
+/*! \brief Result Code: InitMFECmplt */
 
 #define  AUDRLT_INITMFECMPLT    AUDCMD_INITMFE
 
-/*! \brief Result Code: InitMPPCmplt (__not supported__) */
+/*! \brief Result Code: SetMFECmplt */
+
+#define  AUDRLT_SETMFECMPLT     AUDCMD_SETMFE
+
+/*! \brief Result Code: InitMPPCmplt */
 
 #define  AUDRLT_INITMPPCMPLT    AUDCMD_INITMPP
 
-/*! \brief Result Code: SetMPPParamCmplt (__not supported__) */
+/*! \brief Result Code: SetMPPParamCmplt */
 
 #define  AUDRLT_SETMPPCMPLT     AUDCMD_SETMPPPARAM
 
@@ -280,11 +296,11 @@
 /** @name Command Baseband Function code */
 /** @{ */
 
-/*! brief Command Code: StartBB (__not supported__) */
+/*! \brief Command Code: StartBB (__not supported__) */
 
 #define AUDCMD_STARTBB          (AUDCMD_CATEGORY_BASEBAND | 0x01)
 
-/*! brief Command Code: StopBB (__not supported__) */
+/*! \brief Command Code: StopBB (__not supported__) */
 
 #define AUDCMD_STOPBB           (AUDCMD_CATEGORY_BASEBAND | 0x02)
 
@@ -332,6 +348,10 @@
 
 #define AUDCMD_SETSPDRVMODE     (AUDCMD_CATEGORY_BASEBAND | 0x0d)
 
+/*! \brief Command Code: SetMicMap */
+
+#define AUDCMD_SETMICMAP        (AUDCMD_CATEGORY_BASEBAND | 0x0e)
+
 /** @} */
 
 /** @name Baseband Result code */
@@ -348,6 +368,10 @@
 /*! \brief Result Code: InitMicGainCmplt */
 
 #define AUDRLT_INITMICGAINCMPLT         AUDCMD_INITMICGAIN
+
+/*! \brief Result Code: InitMicGainCmplt */
+
+#define AUDRLT_SETMICMAPCMPLT           AUDCMD_SETMICMAP
 
 /*! \brief Result Code: InitI2SCmplt (__not supported__) */
 

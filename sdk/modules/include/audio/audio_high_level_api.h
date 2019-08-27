@@ -67,6 +67,7 @@
 #endif
 #ifdef CONFIG_AUDIOUTILS_RECORDER
 #  include "audio/audio_recorder_api.h"
+#  include "audio/audio_frontend_api.h"
 #  include "audio/audio_capture_api.h"
 #endif
 #if defined(CONFIG_AUDIOUTILS_VOICE_CALL) || defined(CONFIG_AUDIOUTILS_VOICE_COMMAND)
@@ -139,6 +140,10 @@
 /*! \brief PowerOn command (#AUDCMD_SETPOWEROFFSTATUS) packet length */
 
 #define LENGTH_SET_POWEROFF_STATUS  2
+
+/*! \brief SetMicMap command (#AUDCMD_SETMICMAP) packet length */
+
+#define LENGTH_SETMICMAP            4
 
 /*! \brief InitMicGain command (#AUDCMD_INITMICGAIN) packet length */
 
@@ -461,6 +466,14 @@
 
 #define AS_ECODE_SET_SPDRVMODE_ERROR             0x3C
 
+/*! \brief Set Mic Map Error */
+
+#define AS_ECODE_SET_MICMAP_ERROR                0x3D
+
+/*! \brief Audio SW object cannot available Error */
+
+#define AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR      0x3E
+
 /** @} */
 
 /****************************************************************************
@@ -492,9 +505,9 @@ typedef struct
 
 typedef struct
 {
-  /*! \brief reserved */
+  /*! \brief [out] instance id */
 
-  uint8_t reserved;
+  uint8_t instance_id;
 
   /*! \brief [out] sub code*/
 
@@ -508,6 +521,35 @@ typedef struct
 
   uint8_t packet_length;
 } AudioResultHeader;
+
+/** SetMicMap Command (#AUDCMD_SETMICMAP) parameter */
+
+typedef struct
+{
+  /*! \brief [in] Set Mic mapping
+   *
+   *   mic_map[ch(0 <= ch < AS_MIC_CHANNEL_MAX] correspond to
+   *   each channels, and you can map analog and digital Mics.
+   *
+   *   0x1 : Analog Mic 1
+   *   0x2 : Analog Mic 2 
+   *   0x3 : Analog Mic 3
+   *   0x4 : Analog Mic 4
+   *   0x5 : Digital Mic 1
+   *   0x6 : Digital Mic 2
+   *   0x7 : Digital Mic 3
+   *   0x8 : Digital Mic 4
+   *   0x9 : Digital Mic 5
+   *   0xA : Digital Mic 6
+   *   0xB : Digital Mic 7
+   *   0xC : Digital Mic 8
+   *   other : No assing
+   *
+   */
+
+  uint8_t mic_map[AS_MIC_CHANNEL_MAX]; 
+
+} SetMicMapParam;
 
 /** InitMicGain Command (#AUDCMD_INITMICGAIN) parameter */
 
@@ -899,6 +941,39 @@ typedef struct
 
 #endif
 
+#ifdef AS_FEATURE_FRONTEND_ENABLE
+
+/** EnablePreProc Command (#AUDCMD_SETMFETYPE) parameter */
+
+typedef struct
+{
+  /*! \brief [in] Set pre process type 
+   *
+   * Use #AsMicFrontendPreProcType enum type
+   */
+
+  uint32_t  preproc_type;
+  
+} AsSetMicFrontEndType;
+
+/** InitMfe Command (#AUDCMD_INITMFE) parameter */
+
+typedef struct
+{
+  AsInitPreProcParam initpre_param;
+
+} AsInitMicFrontEnd;
+
+/** SetMfe Command (#AUDCMD_SETMFE) parameter */
+
+typedef struct
+{
+  AsSetPreProcParam setpre_param;
+
+} AsSetMicFrontEnd;
+
+#endif
+
 /** Audio command packet */
 
 #if defined(__CC_ARM)
@@ -913,12 +988,6 @@ typedef struct
   union
   {
 #ifdef AS_FEATURE_EFFECTOR_ENABLE
-    /*! \brief [in] for InitMFE (__not supported__)
-     * (header.command_code==#AUDCMD_INITMFE)
-     */
-
-    InitMFEParam init_mfe_param;
-
     /*! \brief [in] for StartBB (__not supported__)
      * (header.command_code==#AUDCMD_STARTBB)
      */
@@ -970,6 +1039,27 @@ typedef struct
     AsSetMediaPlayerPost set_mpp_param;
 
 #endif
+#ifdef AS_FEATURE_FRONTEND_ENABLE
+
+    /*! \brief [in] for Enable PreProcess 
+     * (header.command_code==#AUDCMD_SETMFETYPE)
+     */
+
+    AsSetMicFrontEndType set_mfetype_param;
+
+    /*! \brief [in] for InitMFE
+     * (header.command_code==#AUDCMD_INITMFE)
+     */
+
+    AsInitMicFrontEnd init_mfe_param;
+
+    /*! \brief [in] for SetMFE
+     * (header.command_code==#AUDCMD_SETMFEPARAM)
+     */
+
+    AsSetMicFrontEnd set_mfe_param;
+
+#endif
 #ifdef AS_FEATURE_RECORDER_ENABLE
 
     /*! \brief [in] for SetRecorderStatus
@@ -991,6 +1081,12 @@ typedef struct
 
     StartVoiceCommandParam start_voice_command_param;
 #endif
+
+    /*! \brief [in] for SetMicMap
+     * (header.command_code==#AUDCMD_SETMICMAP)
+     */
+
+    SetMicMapParam set_mic_map_param;
 
     /*! \brief [in] for InitMicGain
      * (header.command_code==#AUDCMD_INITMICGAIN)
@@ -1220,6 +1316,10 @@ typedef enum
 
   /*! \brief Audio Baseband Driver Module ID */
   AS_MODULE_ID_AUDIO_DRIVER,
+
+  /*! \brief FrontEnd Object ID */
+
+  AS_MODULE_ID_MIC_FRONTEND_OBJ,
 
   /*! \brief Input Data Manager Object ID */
 
@@ -1480,6 +1580,10 @@ typedef struct
   /*! \brief [in] MsgQueID of playerObject for Sound Effect */
 
   uint8_t player_sub;
+
+  /*! \brief [in] MsgQueID of FrontendObject */
+
+  uint8_t micfrontend;
 
   /*! \brief [in] MsgQueID of recorderObject */
 

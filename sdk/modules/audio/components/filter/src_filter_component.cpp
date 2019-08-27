@@ -301,6 +301,8 @@ bool SRCComponent::flush_apu(StopSRCParam *param)
   Apu::Wien2ApuCmd* p_apu_cmd =
     static_cast<Apu::Wien2ApuCmd*>(getApuCmdBuf());
 
+  FILTER_DBG("FLUSH SRC:\n");
+
   if (p_apu_cmd == NULL)
     {
       return false;
@@ -331,7 +333,7 @@ bool SRCComponent::recv_apu(DspDrvComPrm_t *p_param)
 
   if (Apu::ApuExecOK != packet->result.exec_result)
     {
-      FILTER_ERR(AS_ATTENTION_SUB_CODE_DSP_EXEC_ERROR);
+      FILTER_WARN(AS_ATTENTION_SUB_CODE_DSP_EXEC_ERROR);
     }
 
   if (Apu::InitEvent == packet->header.event_type)

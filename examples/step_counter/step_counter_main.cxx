@@ -57,6 +57,10 @@
 #include "include/msgq_pool.h"
 #include "include/fixed_fence.h"
 
+/* Section number of memory layout to use */
+
+#define SENSOR_SECTION   SECTION_NO0
+
 using namespace MemMgrLite;
 
 /****************************************************************************
@@ -136,7 +140,7 @@ static bool sensor_init_libraries(void)
       return false;
     }
 
-  err = Manager::initPerCpu(mml_data_area, NUM_MEM_POOLS);
+  err = Manager::initPerCpu(mml_data_area, static_pools, pool_num, layout_no);
   if (err != ERR_OK)
     {
       err("Error: Manager::initPerCpu() failure. 0x%x\n", err);
@@ -145,15 +149,18 @@ static bool sensor_init_libraries(void)
 
   /* Create static memory pool of VoiceCall. */
 
+  const uint8_t sec_no      = SECTION_NO0;
   const NumLayout layout_no = 0;
-  void* work_va = translatePoolAddrToVa(MEMMGR_WORK_AREA_ADDR);
-  err = Manager::createStaticPools(layout_no,
-                             work_va,
-                             MEMMGR_MAX_WORK_SIZE,
-                             MemoryPoolLayouts[layout_no]);
+  void* work_va = translatePoolAddrToVa(S0_MEMMGR_WORK_AREA_ADDR);
+  const PoolSectionAttr *ptr  = &MemoryPoolLayouts[sec_no][layout_no][0];
+  err = Manager::createStaticPools(sec_no,
+                                   layout_no,
+                                   work_va,
+                                   S0_MEMMGR_WORK_AREA_SIZE,
+                                   ptr);
   if (err != ERR_OK)
     {
-      err("Error: Manager::initPerCpu() failure. %d\n", err);
+      err("Error: Manager::createStaticPools() failure. %x\n", err);
       return false;
     }
 
@@ -169,7 +176,7 @@ static bool sensor_finalize_libraries(void)
 
   /* Destroy static pools. */
 
-  MemMgrLite::Manager::destroyStaticPools();
+  MemMgrLite::Manager::destroyStaticPools(SENSOR_SECTION);
 
   /* Finalize memory manager. */
 
@@ -269,39 +276,50 @@ bool step_counter_receive_data(sensor_command_data_mh_t& data)
 bool step_counter_recieve_result(sensor_command_data_mh_t& data)
 {
   bool ret = true;
-  FAR SensorCmdStepCounter *result_data =
-    reinterpret_cast<SensorCmdStepCounter *>(data.mh.getVa());
-  if (SensorOK == result_data->result.exec_result)
+  FAR SensorResultStepCounter *result =
+    reinterpret_cast<SensorResultStepCounter *>(data.mh.getVa());
+  if (SensorOK == result->exec_result)
     {
-      if (result_data->exec_cmd.cmd_type == 
-            STEP_COUNTER_CMD_UPDATE_ACCELERATION)
-        {
 #ifndef CONFIG_CPUFREQ_RELEASE_LOCK
-          message("   %8ld,   %8ld,   %8ld,   %8ld,   %8lld,",
-            (uint32_t)result_data->result.steps.tempo,
-            (uint32_t)result_data->result.steps.stride,
-            (uint32_t)result_data->result.steps.speed,
-            (uint32_t)result_data->result.steps.distance,
-            result_data->result.steps.time_stamp
-          );
-#endif
-          message("   %8ld,", result_data->result.steps.step);
-          switch (result_data->result.steps.movement_type)
-          {
-          case STEP_COUNTER_MOVEMENT_TYPE_STILL:
-            message("   stopping\r");
-            break;
+      float  tempo = 0;
+
+      switch (result->steps.movement_type)
+        {
           case STEP_COUNTER_MOVEMENT_TYPE_WALK:
-            message("   walking\r");
-            break;
           case STEP_COUNTER_MOVEMENT_TYPE_RUN:
-            message("   running\r");
+
+            /* Tempo values are valid for walking and running only. */
+
+            tempo = result->steps.tempo;
             break;
           default:
-            message("   UNKNOWN\r");
             break;
-          }
         }
+
+      message("%11.5f,%11.2f,%11.5f,%11.2f,%11lld,",
+        tempo,
+        result->steps.stride,
+        result->steps.speed,
+        result->steps.distance,
+        result->steps.time_stamp
+      );
+#endif
+      message("   %8ld,", result->steps.step);
+      switch (result->steps.movement_type)
+      {
+      case STEP_COUNTER_MOVEMENT_TYPE_STILL:
+        message("   stopping\r");
+        break;
+      case STEP_COUNTER_MOVEMENT_TYPE_WALK:
+        message("   walking \r");
+        break;
+      case STEP_COUNTER_MOVEMENT_TYPE_RUN:
+        message("   running \r");
+        break;
+      default:
+        message("   UNKNOWN \r");
+        break;
+      }
     }
   else
     {
@@ -415,7 +433,7 @@ extern "C" int step_counter_main(int argc, char *argv[])
 
   /* Setup logical sensor. */
 
-  sp_step_counter_ins = StepCounterCreate(SENSOR_DSP_CMD_BUF_POOL);
+  sp_step_counter_ins = StepCounterCreate(S0_SENSOR_DSP_CMD_BUF_POOL);
   if (NULL == sp_step_counter_ins)
     {
       err("Error: StepCounterCreate() failure.\n");
@@ -446,7 +464,8 @@ extern "C" int step_counter_main(int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
-#ifndef CONFIG_EXAMPLES_STEP_COUNTER_ENABLE_GNSS
+#if defined(CONFIG_CPUFREQ_RELEASE_LOCK) && \
+    !defined(CONFIG_EXAMPLES_STEP_COUNTER_ENABLE_GNSS)
   /* After here,
    * because this example program doesn't access to flash
    * and doesn't use TCXO,
@@ -547,7 +566,8 @@ extern "C" int step_counter_main(int argc, char *argv[])
   rel.self        = gnssID;
   SS_SendSensorRelease(&rel);
 
-#ifndef CONFIG_EXAMPLES_STEP_COUNTER_ENABLE_GNSS
+#if defined(CONFIG_CPUFREQ_RELEASE_LOCK) && \
+    !defined(CONFIG_EXAMPLES_STEP_COUNTER_ENABLE_GNSS)
   /* Turn flash and TCXO power on */
 
   board_xtal_power_control(true);

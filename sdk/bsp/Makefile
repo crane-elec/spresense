@@ -135,6 +135,14 @@ ifeq ($(BOARDMAKE),y)
   LDLIBS += -lboard
 endif
 
+ifneq ($(CONFIG_LIBM),y)
+ifeq ($(CONFIG_LIBM_NEWLIB),y)
+  # Use newlib math library instead of built-in one
+  LIBM = "${shell "$(CC)" $(ARCHCPUFLAGS) -print-file-name=libm.a}"
+  LDLIBS += $(LIBM)
+endif
+endif
+
 LIBGCC = "${shell "$(CC)" $(ARCHCPUFLAGS) -print-libgcc-file-name}"
 GCC_LIBDIR := ${shell dirname $(LIBGCC)}
 

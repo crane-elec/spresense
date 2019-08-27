@@ -67,7 +67,6 @@ using namespace MemMgrLite;
 
 /* Definition when not using Memory pool. */
 
-#define INVALID_POOL_ID   0
 #define SRC_WORK_BUF_SIZE 8192 /* 1024sample * 2ch * 4bytes */
 
 /****************************************************************************
@@ -89,6 +88,8 @@ static AsPlayerMsgQueId_t s_msgq_id;
 static AsPlayerMsgQueId_t s_sub_msgq_id;
 static AsPlayerPoolId_t   s_pool_id;
 static AsPlayerPoolId_t   s_sub_pool_id;
+static AsPlayerId         s_player_id;
+static AsPlayerId         s_sub_player_id;
 
 static void *s_play_obj = NULL;
 static void *s_sub_play_obj = NULL;
@@ -109,7 +110,8 @@ static bool decoder_comp_done_callback(void *p_response, FAR void *p_requester)
 
   if (DSP_COM_DATA_TYPE_STRUCT_ADDRESS != p_param->type)
     {
-      MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_DSP_ILLEGAL_REPLY);
+      MEDIA_PLAYERS_ERR((static_cast<FAR PlayerObj *>(p_requester))->get_playerId(),
+                        AS_ATTENTION_SUB_CODE_DSP_ILLEGAL_REPLY);
       return false;
     }
 
@@ -178,7 +180,8 @@ static bool decoder_comp_done_callback(void *p_response, FAR void *p_requester)
       break;
 
     default:
-      MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_DSP_ILLEGAL_REPLY);
+      MEDIA_PLAYERS_ERR((static_cast<FAR PlayerObj *>(p_requester))->get_playerId(),
+                        AS_ATTENTION_SUB_CODE_DSP_ILLEGAL_REPLY);
       return false;
   }
   return true;
@@ -204,11 +207,12 @@ static void pcm_send_done_callback(int32_t identifier, bool is_end)
 }
 
 /*--------------------------------------------------------------------------*/
-PlayerObj::PlayerObj(AsPlayerMsgQueId_t msgq_id, AsPlayerPoolId_t pool_id):
+PlayerObj::PlayerObj(AsPlayerMsgQueId_t msgq_id, AsPlayerPoolId_t pool_id, AsPlayerId player_id):
   m_msgq_id(msgq_id),
   m_pool_id(pool_id),
   m_state(AS_MODULE_ID_PLAYER_OBJ, "main", BootedState),
   m_sub_state(AS_MODULE_ID_PLAYER_OBJ, "sub", InvalidSubState),
+  m_player_id(player_id),
   m_input_device_handler(NULL),
   m_codec_type(InvalidCodecType),
   m_src_work_buf(NULL),
@@ -566,6 +570,7 @@ void PlayerObj::activate(MsgPacket *msg)
     }
   else
     {
+      MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
       reply(AsPlayerEventAct,
             msg->getType(),
             AS_ECODE_COMMAND_PARAM_INPUT_HANDLER);
@@ -634,6 +639,10 @@ void PlayerObj::init(MsgPacket *msg)
               result = loadCodec(next_codec, &param, &dsp_inf);
             }
         }
+    }
+  else
+    {
+      MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
     }
 
   reply(AsPlayerEventInit, msg->getType(), result);
@@ -1354,6 +1363,15 @@ uint32_t PlayerObj::startPlay(uint32_t* dsp_inf)
   rst = m_input_device_handler->start();
   if (rst != AS_ECODE_OK)
     {
+      if (rst == AS_ECODE_SIMPLE_FIFO_UNDERFLOW)
+        {
+          MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_SIMPLE_FIFO_UNDERFLOW);
+        }
+      else
+        {
+          MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_STREAM_PARSER_ERROR);
+        }
+
       return rst;
     }
 
@@ -1520,7 +1538,7 @@ void* PlayerObj::allocSrcWorkBuf(uint32_t size)
 {
   void *work_buf_addr;
 
-  if (m_pool_id.src_work != INVALID_POOL_ID)
+  if (m_pool_id.src_work.pool != NullPoolId.pool)
     {
       MemMgrLite::MemHandle mh;
       if (mh.allocSeg(m_pool_id.src_work, size) != ERR_OK)
@@ -1619,7 +1637,7 @@ bool PlayerObj::checkAndSetMemPool()
       return false;
     }
 
-  if (m_pool_id.src_work != INVALID_POOL_ID)
+  if (m_pool_id.src_work.pool != NullPoolId.pool)
     {
       if (!MemMgrLite::Manager::isPoolAvailable(m_pool_id.src_work))
         {
@@ -1660,7 +1678,8 @@ int AS_PlayerObjEntry(int argc, char *argv[])
 {
   PlayerObj::create(&s_play_obj,
                     s_msgq_id,
-                    s_pool_id);
+                    s_pool_id,
+                    s_player_id);
   return 0;
 }
 
@@ -1669,29 +1688,13 @@ int AS_SubPlayerObjEntry(int argc, char *argv[])
 {
   PlayerObj::create(&s_sub_play_obj,
                     s_sub_msgq_id,
-                    s_sub_pool_id);
+                    s_sub_pool_id,
+                    s_sub_player_id);
   return 0;
 }
 
 /*--------------------------------------------------------------------------*/
-bool AS_CreatePlayer(AsPlayerId id, FAR AsCreatePlayerParam_t *param)
-{
-  /* Do not use memory pool for work area of src.
-   * Set invalid value in memory pool.
-   */
-
-  param->pool_id.src_work = INVALID_POOL_ID;
-  return AS_CreatePlayerMulti(id, param, NULL);
-}
-
-/*--------------------------------------------------------------------------*/
-bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParam_t *param)
-{
-  return AS_CreatePlayerMulti(id, param, NULL);
-}
-
-/*--------------------------------------------------------------------------*/
-bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParam_t *param, AudioAttentionCb attcb)
+static bool CreatePlayerMulti(AsPlayerId id, AsPlayerMsgQueId_t msgq_id, AsPlayerPoolId_t pool_id, AudioAttentionCb attcb)
 {
   /* Register attention callback */
 
@@ -1699,18 +1702,13 @@ bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParam_t *param, Audio
 
   /* Parameter check */
 
-  if (param == NULL)
-    {
-      MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
-      return false;
-    }
-
   /* Create */
 
   if (id == AS_PLAYER_ID_0)
     {
-      s_msgq_id = param->msgq_id;
-      s_pool_id = param->pool_id;
+      s_msgq_id = msgq_id;
+      s_pool_id = pool_id;
+      s_player_id = id;
 
       /* Reset Message queue. */
 
@@ -1725,14 +1723,15 @@ bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParam_t *param, Audio
                               NULL);
       if (s_ply_pid < 0)
         {
-          MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
+          MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
           return false;
         }
     }
   else
     {
-      s_sub_msgq_id = param->msgq_id;
-      s_sub_pool_id = param->pool_id;
+      s_sub_msgq_id = msgq_id;
+      s_sub_pool_id = pool_id;
+      s_sub_player_id = id;
 
       /* Reset Message queue. */
 
@@ -1747,12 +1746,88 @@ bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParam_t *param, Audio
                                   NULL);
       if (s_sub_ply_pid < 0)
         {
-          MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
+          MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
           return false;
         }
     }
 
   return true;
+}
+
+
+/*
+ * The following tree functions are Old functions for compatibility.
+ */
+
+static bool CreatePlayerMulti(AsPlayerId id, AsPlayerMsgQueId_t msgq_id,AsPlayerPoolId_old_t pool_id, AudioAttentionCb attcb)
+{
+  AsPlayerPoolId_t tmp;
+  tmp.es.sec = tmp.pcm.sec = tmp.dsp.sec = tmp.src_work.sec = 0;
+  tmp.es.pool = pool_id.es;
+  tmp.pcm.pool = pool_id.pcm;
+  tmp.dsp.pool = pool_id.dsp;
+  tmp.src_work.pool = pool_id.src_work;
+
+  return CreatePlayerMulti(id, msgq_id, tmp, attcb);
+
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParam_t *param, AudioAttentionCb attcb)
+{
+  return CreatePlayerMulti(id, param->msgq_id, param->pool_id, attcb);
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParam_t *param)
+{
+  return AS_CreatePlayerMulti(id, param, NULL);
+}
+
+/*
+ * The following two functions are New functions for multi-section memory layout.
+ */
+
+bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParams_t *param, AudioAttentionCb attcb)
+{
+  return CreatePlayerMulti(id, param->msgq_id, param->pool_id, attcb);
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_CreatePlayerMulti(AsPlayerId id, FAR AsCreatePlayerParams_t *param)
+{
+  return AS_CreatePlayerMulti(id, param, NULL);
+}
+
+/*--------------------------------------------------------------------------*/
+static bool CreatePlayer(AsPlayerId id, AsPlayerMsgQueId_t msgq_id, AsPlayerPoolId_old_t pool_id)
+{
+  /* Do not use memory pool for work area of src.
+   * Set invalid value in memory pool.
+   */
+
+  AsPlayerPoolId_t tmp;
+  tmp.es.sec = tmp.pcm.sec = tmp.dsp.sec = 0;
+  tmp.es.pool = pool_id.es;
+  tmp.pcm.pool = pool_id.pcm;
+  tmp.dsp.pool = pool_id.dsp;
+  tmp.src_work = NullPoolId;
+
+  return CreatePlayerMulti(id, msgq_id, tmp, NULL);
+
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_CreatePlayer(AsPlayerId id, FAR AsCreatePlayerParam_t *param)
+{
+  if (param == NULL)
+    {
+      MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
+      return false;
+    }
+
+  return CreatePlayer(id, param->msgq_id, param->pool_id);
+
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1965,7 +2040,7 @@ bool AS_DeletePlayer(AsPlayerId id)
     {
       if (s_ply_pid < 0)
         {
-          MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
+          MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
           return false;
         }
 
@@ -1981,7 +2056,7 @@ bool AS_DeletePlayer(AsPlayerId id)
     {
       if (s_sub_ply_pid < 0)
         {
-          MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
+          MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
           return false;
         }
     
@@ -2004,11 +2079,26 @@ bool AS_DeletePlayer(AsPlayerId id)
   return true;
 }
 
+/*--------------------------------------------------------------------------*/
+bool AS_checkAvailabilityMediaPlayer(AsPlayerId id)
+{
+  if (id == AS_PLAYER_ID_0)
+    {
+      return (s_play_obj != NULL);
+    }
+  else
+    {
+      return (s_sub_play_obj != NULL);
+    }
+}
+
+/*--------------------------------------------------------------------------*/
 void PlayerObj::create(FAR void **obj,
                        AsPlayerMsgQueId_t msgq_id,
-                       AsPlayerPoolId_t pool_id)
+                       AsPlayerPoolId_t pool_id,
+                       AsPlayerId player_id)
 {
-  FAR PlayerObj *player_obj = new PlayerObj(msgq_id, pool_id);
+  FAR PlayerObj *player_obj = new PlayerObj(msgq_id, pool_id, player_id);
 
   if (player_obj != NULL)
     {
@@ -2017,7 +2107,7 @@ void PlayerObj::create(FAR void **obj,
     }
   else
     {
-      MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
+      MEDIA_PLAYERS_ERR(player_id, AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
       return;
     }
 }

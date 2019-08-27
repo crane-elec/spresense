@@ -1,7 +1,7 @@
 /****************************************************************************
  * bsp/src/cxd56_gnss.c
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2018,2019 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -387,12 +387,20 @@ static int (*g_cmdlist[CXD56_GNSS_IOCTL_MAX])(FAR struct file *filep,
 static int cxd56_gnss_start(FAR struct file *filep, unsigned long arg)
 {
   int     ret;
+  int     retry = 50;
   uint8_t start_mode = (uint8_t)arg;
 
   ret = board_lna_power_control(true);
   if (ret < 0)
     {
       return ret;
+    }
+
+  while (!g_rtc_enabled && 0 < retry--)
+    {
+      /* GNSS requires stable RTC */
+
+      usleep(100 * 1000);
     }
 
   ret = cxd56_gnss_cpufifo_api(filep, CXD56_GNSS_GD_GNSS_START,
@@ -1272,6 +1280,7 @@ static int cxd56_gnss_control_spectrum(FAR struct file *filep, unsigned long arg
 static int cxd56_gnss_start_test(FAR struct file *filep, unsigned long arg)
 {
   int ret;
+  int retry = 50;
   FAR struct cxd56_gnss_test_info_s *info;
 
   /* check argument */
@@ -1282,6 +1291,21 @@ static int cxd56_gnss_start_test(FAR struct file *filep, unsigned long arg)
     }
   else
     {
+      /* Power on the LNA device */
+
+      ret = board_lna_power_control(true);
+      if (ret < 0)
+        {
+          return ret;
+        }
+
+      while (!g_rtc_enabled && 0 < retry--)
+        {
+          /* GNSS requires stable RTC */
+
+          usleep(100 * 1000);
+        }
+
       /* set parameter */
 
       info = (FAR struct cxd56_gnss_test_info_s *)arg;
@@ -1324,6 +1348,10 @@ static int cxd56_gnss_stop_test(FAR struct file *filep, unsigned long arg)
 
       ret = GD_Stop();
     }
+
+  /* Power off the LNA device */
+
+  board_lna_power_control(false);
 
   return ret;
 }
@@ -2344,6 +2372,11 @@ static int8_t cxd56_gnss_select_notifytype(off_t fpos, FAR uint32_t *offset)
       type = CXD56_CPU1_DATA_TYPE_SBAS;
       *offset = 0;
     }
+  else if (fpos == CXD56_GNSS_READ_OFFSET_DCREPORT)
+    {
+      type = CXD56_CPU1_DATA_TYPE_DCREPORT;
+      *offset = 0;
+    }
   else
     {
       type = -1;
@@ -2590,7 +2623,7 @@ _success:
  *
  * Returned Value:
  *   Always returns -ENOENT error.
- * 
+ *
  *****************************************************************************/
 
 static ssize_t cxd56_gnss_write(FAR struct file *filep,
@@ -2785,6 +2818,10 @@ static int cxd56_gnss_register(FAR const char *devpath)
     },
     {
       CXD56_CPU1_DATA_TYPE_SBAS,
+      cxd56_gnss_common_signalhandler
+    },
+    {
+      CXD56_CPU1_DATA_TYPE_DCREPORT,
       cxd56_gnss_common_signalhandler
     }
   };

@@ -247,14 +247,6 @@ enum cxd56_audio_dma_path_e
 
   CXD56_AUDIO_DMA_PATH_MIC_TO_MEM = 0,
 
-  /** I2S0 to memory  */
-
-  CXD56_AUDIO_DMA_PATH_I2S0_TO_MEM,
-
-  /** I2S1 to memory  */
-
-  CXD56_AUDIO_DMA_PATH_I2S1_TO_MEM,
-
   /** Memory to BUS I/F1 */
 
   CXD56_AUDIO_DMA_PATH_MEM_TO_BUSIF1,
@@ -314,17 +306,9 @@ enum cxd56_audio_dma_e
 
   CXD56_AUDIO_DMAC_MIC = 0,
 
-  /** I2S input */
-
-  CXD56_AUDIO_DMAC_I2S0_UP,
-
   /** I2S_OUT */
 
   CXD56_AUDIO_DMAC_I2S0_DOWN,
-
-  /** I2S2_IN */
-
-  CXD56_AUDIO_DMAC_I2S1_UP,
 
   /** I2S2_OUT */
 
@@ -962,6 +946,24 @@ CXD56_AUDIO_ECODE cxd56_audio_set_spdriver(cxd56_audio_sp_drv_t sp_driver);
  * @retval cxd56_audio_sp_drv_t  speaker driver mode
  */
 cxd56_audio_sp_drv_t cxd56_audio_get_spdriver(void);
+
+/**
+ * @brief Set Mic mapping 
+ *
+ * @param[in] map  mic mapping
+ *
+ * @retval CXD56_AUDIO_ECODE return code
+ */
+
+CXD56_AUDIO_ECODE cxd56_audio_set_micmap(uint32_t map);
+
+/**
+ * @brief Get Mic mapping 
+ *
+ * @retval mic mapping 
+ */
+
+uint32_t cxd56_audio_get_micmap(void);
 
 #ifdef __cplusplus
 } /* end of extern "C" */
