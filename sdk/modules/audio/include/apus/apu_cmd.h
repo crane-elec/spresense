@@ -312,13 +312,12 @@ public:
 struct apu_init_dec_cmd_s
 {
 public:
-  WaveType           type;           /**< Wave type of data */
-  uint8_t            channel_no;     /**< Channel number of data */
-  uint32_t           frequency;      /**< frequency of genarated wave */
+  WaveType           type;           /**< Wave type of data */ /* 現状は全チャンネル波形タイプは一緒。将来は変える */
+  uint8_t            channel_num;    /**< Channel number of data */  /*出力データのチャンネル数*/
   AudioPcmBitWidth   bit_length;     /**< Bit length of data */
   uint32_t           sampling_rate;  /**< Sampling rate of data */
-  int32_t            sample;         /**< Sample number of data */
 };
+/* initだけだと、disable。*/
 typedef struct apu_init_osc_cmd_s ApuInitOscCmd;
 
 /**
@@ -328,11 +327,9 @@ typedef struct apu_init_osc_cmd_s ApuInitOscCmd;
 struct ApuExecOscCmd
 {
 public:
-  uint8_t       channel_no;     /**< Channel number of data */
-  BufferHeader  buffer;  /**< Output buffer information */
-                         /**<  (including at least buffer address */
-                         /**<  or pointer and buffer size) */
-  uint16_t      sample;  /**< Number of samples */
+	BufferHeader  buffer;  /**< Output buffer information */
+                           /**<  (including at least buffer address */
+                           /**<  or pointer and buffer size) */ /* バッファはチャンネルインターリープ */
 };
 
 /**
@@ -342,8 +339,9 @@ public:
 struct ApuFlushOscCmd
 {
 public:
-  uint8_t       channel_no;     /**< Channel number of data */
+  uint8_t       channel_no;     /**< Channel number of data */ /* 変更したいチャンネル番号 */
 };
+/* θを戻す？。実質使わない？実質execしない = 停止。*/
 
 /**
  * Set paramter processing
@@ -352,8 +350,8 @@ public:
 struct ApuSetOscCmd
 {
 public:
-  uint8_t       channel_no;     /**< Channel number of data */
-  uint32_t      frequency;      /**< frequency of genarated wave */
+  uint8_t       channel_no;     /**< Channel number of data */ /* 変更したいチャンネル番号 */
+  int32_t       frequency;      /**< frequency of genarated wave */ /* 負の値をいれるとdisable相当 */
 };
 
 
