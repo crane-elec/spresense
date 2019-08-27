@@ -68,10 +68,6 @@ struct ExecOscParam
   uint8_t      channel_no;
 };
 
-struct StopOscParam
-{
-};
-
 struct SetOscParam
 {
   uint8_t          channel_no;
@@ -85,9 +81,9 @@ struct OscCmpltParam
 
   union
   {
-    InitOscParam init_enc_cmplt;
-    ExecOscParam exec_enc_cmplt;
-    StopOscParam stop_enc_cmplt;
+    InitOscParam init_osc_param;
+    ExecOscParam exec_osc_param;
+    SetOscParam  set_osc_param;
   };
 };
 
@@ -105,7 +101,7 @@ public:
   bool     deactivate();
   uint32_t init(const InitOscParam& param, uint32_t *dsp_inf);
   bool     exec(const ExecOscParam& param);
-  bool     flush(const StopOscParam& param);
+  bool     flush(void);
   bool     set(const SetOscParam& param);
   bool     recv(void *p_param);
   bool     done(void)

@@ -243,7 +243,7 @@ uint32_t OscillatorComponent::set(const SetOscParam& param)
 }
 
 /*--------------------------------------------------------------------*/
-bool OscillatorComponent::flush(const StopOscParam& param)
+bool OscillatorComponent::flush()
 {
   /* Regardless of output buffer is not allocated, send Flush Request
    * to DSP. Because it is needed by DSP to finish process correctly.
