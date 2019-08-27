@@ -54,27 +54,39 @@ Oscillator::CtrlProc Oscillator::CtrlFuncTbl[Wien2::Apu::ApuEventTypeNum][OscSta
 /*--------------------------------------------------------------------*/
 void Oscillator::parse(Wien2::Apu::Wien2ApuCmd *cmd)
 {
-#if 0
   if (cmd->header.process_mode != Wien2::Apu::OscMode)
     {
       cmd->result.exec_result = Wien2::Apu::ApuExecError;
       return;
     }
-#endif
-
+	
   (this->*CtrlFuncTbl[cmd->header.event_type][m_state])(cmd);
 }
 
 /*--------------------------------------------------------------------*/
 void Oscillator::illegal(Wien2::Apu::Wien2ApuCmd *cmd)
 {
-  cmd->result.exec_result = Wien2::Apu::ApuExecError;
+  cmd->result.exec_result = Wien2::Apu::ApuExecError; /* データエラートの区別ができるようにコードを分ける
+	*/
 }
 
 /*--------------------------------------------------------------------*/
 void Oscillator::init(Wien2::Apu::Wien2ApuCmd *cmd)
 {
   /* Init signal process. */
+  /* データチェック */
+
+
+	for(int i = 0;i<cmd->channel_num;i++){
+		m_frequency[i] = -1;
+		m_theta[i] = 0;
+		m_omega[i] = 0;
+	}
+
+	m_type = cmd->type;
+	m_channel_num = cmd->channel_num;
+	m_bit_length = cmd->bit_length;
+	m_sampling_rate = cmd->sampling_rate;
 
   m_state = Ready;
 
@@ -85,6 +97,14 @@ void Oscillator::init(Wien2::Apu::Wien2ApuCmd *cmd)
 void Oscillator::exec(Wien2::Apu::Wien2ApuCmd *cmd)
 {
   /* Execute process to input audio data. */
+
+	for(int i = 0;i<m_channel_num;i++){
+		q15_t* ptr = (q15_t*)cmd->buffer->p_buffer + i;
+ 		for(int j = 0;j<cmd->buffer->size;j++){ /* サンプルに変える必要ある？*/
+ 			*ptr = arm_sin_q15 (m_theta[i]);
+ 			(m_theta[i] + m_omega[i]) < 1 ? m_theta[i] = (m_theta[i] + m_omega[i]) :  m_theta[i] = (m_theta[i] + m_omega[i] -1);
+ 		}
+	}
 
   m_state = Active;
 
@@ -105,7 +125,9 @@ void Oscillator::flush(Wien2::Apu::Wien2ApuCmd *cmd)
 void Oscillator::set(Wien2::Apu::Wien2ApuCmd *cmd)
 {
   /* Set process parameters. */
-
+	m_omega[cmd->channel_no] = cmd->frequency * 0x7fffffff / m_sampling_rate;
+	
   cmd->result.exec_result = Wien2::Apu::ApuExecOK;
 }
+
 
