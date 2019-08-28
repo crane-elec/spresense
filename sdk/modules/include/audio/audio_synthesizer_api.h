@@ -69,7 +69,7 @@
 /** @name Packet length of command*/
 /** @{ */
 
-/*! \brief InitRecorder command (#AUDCMD_INITSYN) packet length */
+/*! \brief InitSynthesizer command (#AUDCMD_INITSYN) packet length */
 
 #define LENGTH_INIT_SYNTHESIZER    10 
 
@@ -88,7 +88,7 @@
  * Public Types
  ****************************************************************************/
 
-/** Event type of Recorder */
+/** Event type of Synthesizer */
 
 typedef enum
 {

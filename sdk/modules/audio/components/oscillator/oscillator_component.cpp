@@ -167,12 +167,12 @@ uint32_t OscillatorComponent::init(const InitOscParam& param, uint32_t *dsp_inf)
   p_apu_cmd->header.process_mode = Apu::OscMode;
   p_apu_cmd->header.event_type   = Apu::InitEvent;
 
-  p_apu_cmd->init_osc_cmd.channel_no    =  param.channel_no;
+  p_apu_cmd->init_osc_cmd.channel_num   =  param.channel_num;
   p_apu_cmd->init_osc_cmd.type          =  param.type;
-  p_apu_cmd->init_osc_cmd.frequency     =  param.frequency;
   p_apu_cmd->init_osc_cmd.bit_width     =  param.bit_width;
+  p_apu_cmd->init_osc_cmd.sampling_rate =  param.sampling_rate;
 
-  p_apu_cmd->init_osc_cmd.debug_dump_info.addr = NULL;
+  p_apu_cmd->init_osc_cmd.debug_dump_info.addr = NULL;s
   p_apu_cmd->init_osc_cmd.debug_dump_info.size = 0;
 
   send_apu(p_apu_cmd);

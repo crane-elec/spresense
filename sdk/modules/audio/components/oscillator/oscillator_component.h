@@ -55,9 +55,9 @@ typedef bool (*EncCompCallback)(void*);
 struct InitOscParam
 {
   WaveType         type;
-  uint8_t          channel_no;
-  uint32_t         frequency;
+  uint8_t          channel_num;
   AudioPcmBitWidth bit_width;
+  uint32_t         sampling_rate;
   OscCompCallback  callback;
 };
 
