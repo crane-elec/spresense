@@ -32,6 +32,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 #include <errno.h>
 
 #include <stdlib.h>
@@ -46,8 +47,6 @@ extern "C"
 }
 
 #include "oscillator.h"
-#include <wien2_common_defs.h>
-#include <apus/apu_cmd.h>
 
 #define KEY_MQ 2
 #define KEY_SHM   1
