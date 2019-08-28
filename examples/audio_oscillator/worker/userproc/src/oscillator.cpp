@@ -77,16 +77,16 @@ void Oscillator::init(Wien2::Apu::Wien2ApuCmd *cmd)
   /* データチェック */
 
 
-	for(int i = 0;i<cmd->channel_num;i++){
+	for(int i = 0;i<cmd->init_osc_cmd.channel_num;i++){
 		m_frequency[i] = -1;
 		m_theta[i] = 0;
 		m_omega[i] = 0;
 	}
 
-	m_type = cmd->type;
-	m_channel_num = cmd->channel_num;
-	m_bit_length = cmd->bit_length;
-	m_sampling_rate = cmd->sampling_rate;
+	m_type = cmd->init_osc_cmd.type;
+	m_channel_num = cmd->init_osc_cmd.channel_num;
+	m_bit_length = cmd->init_osc_cmd.bit_length;
+	m_sampling_rate = cmd->init_osc_cmd.sampling_rate;
 
   m_state = Ready;
 
@@ -99,11 +99,11 @@ void Oscillator::exec(Wien2::Apu::Wien2ApuCmd *cmd)
   /* Execute process to input audio data. */
 
 	for(int i = 0;i<m_channel_num;i++){
-		q15_t* ptr = (q15_t*)cmd->buffer->p_buffer + i;
- 		for(int j = 0;j<cmd->buffer->size;j++){ /* サンプルに変える必要ある？*/
- 			*ptr = arm_sin_q15 (m_theta[i]);
- 			(m_theta[i] + m_omega[i]) < 1 ? m_theta[i] = (m_theta[i] + m_omega[i]) :  m_theta[i] = (m_theta[i] + m_omega[i] -1);
- 		}
+		q15_t* ptr = (q15_t*)cmd->exec_osc_cmd.buffer.p_buffer + i;
+		for(uint32_t j = 0;j<cmd->exec_osc_cmd.buffer.size;j++){ /* サンプルに変える必要ある？*/
+			*ptr = arm_sin_q15 (m_theta[i]);
+			(m_theta[i] + m_omega[i]) < 1 ? m_theta[i] = (m_theta[i] + m_omega[i]) :  m_theta[i] = (m_theta[i] + m_omega[i] -1);
+		}
 	}
 
   m_state = Active;
@@ -125,7 +125,7 @@ void Oscillator::flush(Wien2::Apu::Wien2ApuCmd *cmd)
 void Oscillator::set(Wien2::Apu::Wien2ApuCmd *cmd)
 {
   /* Set process parameters. */
-	m_omega[cmd->channel_no] = cmd->frequency * 0x7fffffff / m_sampling_rate;
+	m_omega[cmd->setparam_osc_cmd.channel_no] = cmd->setparam_osc_cmd.frequency * 0x7fffffff / m_sampling_rate;
 	
   cmd->result.exec_result = Wien2::Apu::ApuExecOK;
 }
