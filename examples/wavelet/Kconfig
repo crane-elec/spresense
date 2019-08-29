@@ -1,0 +1,47 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_WAVELET
+	bool "WAVELET Example"
+	default n
+	depends on ASMP && EXTERNALS_CMSIS_DSP
+	---help---
+		Fast Fourier Transform offload to DSP
+
+if EXAMPLES_WAVELET
+
+choice
+	prompt "WAVELET Input Data"
+	default EXAMPLES_WAVELET_REAL_DATA
+
+config EXAMPLES_WAVELET_REAL_DATA
+	bool "Real data"
+
+config EXAMPLES_WAVELET_COMPLEX_DATA
+	bool "Complex data"
+
+endchoice
+
+config EXAMPLES_WAVELET_DSP_PATH
+	string "DSP ELF file path"
+	default "/mnt/sd0/BIN/DSPWAVELET"
+	---help---
+		Set path to DSPWAVELET worker program ELF file on the board.
+
+config EXAMPLES_WAVELET_SAMPLES_WORK_BUFFER_SIZE
+	hex "Work buffer size"
+	default 0x2000
+	---help---
+		The work buffer for WAVELET calculation. The actual memory size
+		is CONFIG_EXAMPLES_WAVELET_SAMPLES_WORK_BUFFER_SIZE x 4 bytes.
+
+config EXAMPLES_WAVELET_SAMPLES_INPUT_BUFFER_SIZE
+	hex "Input buffer size"
+	default 0x1000
+	---help---
+		The input buffer for WAVELET calculation. The actual memory size
+		is CONFIG_EXAMPLES_WAVELET_SAMPLES_INPUT_BUFFER_SIZE x 4 bytes.
+
+endif # EXAMPLES_WAVELET
