@@ -42,7 +42,7 @@
 #include <stdlib.h>
 #include <arch/chip/cxd56_audio.h>
 #include "memutils/common_utils/common_assert.h"
-#include "media_recorder_obj.h"
+#include "synthesizer_obj.h"
 #include "components/oscillator/oscillator_component.h"
 #include "debug/dbg_log.h"
 
@@ -65,11 +65,10 @@ using namespace MemMgrLite;
  * Private Data
  ****************************************************************************/
 
-static pid_t s_syn_pid;
+static pid_t                   s_syn_pid;
 static AsSynthesizerMsgQueId_t s_msgq_id;
 static AsSynthesizerPoolId_t   s_pool_id;
-
-static SynthesizerObject *s_syn_obj = NULL;
+static SynthesizerObject      *s_syn_obj = NULL;
 
 /****************************************************************************
  * Public Data
@@ -81,12 +80,12 @@ static SynthesizerObject *s_syn_obj = NULL;
 int AS_SynthesizerObjectEntry(int argc, char *argv[])
 {
   SynthesizerObject::create(s_msgq_id,
-                           s_pool_id);
+                            s_pool_id);
   return 0;
 }
 
 /*--------------------------------------------------------------------------*/
-bool CreateSynthesizer(AsSynthesizerMsgId msgq_id, AsSynthesizerPoolId_t pool_id, AudioAttentionCb attcb)
+bool CreateSynthesizer(AsSynthesizerMsgQueId_t msgq_id, AsSynthesizerPoolId_t pool_id, AudioAttentionCb attcb)
 {
   /* Register attention callback */
 
@@ -100,7 +99,7 @@ bool CreateSynthesizer(AsSynthesizerMsgId msgq_id, AsSynthesizerPoolId_t pool_id
   s_pool_id = pool_id;
 	
   FAR MsgQueBlock *que;
-  err_t err_code = MsgLib::referMsgQueBlock(s_msgq_id, &que);
+  err_t err_code = MsgLib::referMsgQueBlock(s_msgq_id.synthesizer, &que);
   F_ASSERT(err_code == ERR_OK);
   que->reset();
 
@@ -108,36 +107,35 @@ bool CreateSynthesizer(AsSynthesizerMsgId msgq_id, AsSynthesizerPoolId_t pool_id
                            150, 1024 * 2,
                            AS_SynthesizerObjectEntry,
                            NULL);
-      if (s_syn_pid < 0)
-        {
-          _ERR(id, AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
-          return false;
-        }
+  if (s_syn_pid < 0)
+    {
+      SYNTHESIZER_OBJ_ERR(AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
+      return false;
+    }
+
   return true;
 }
 
 /*--------------------------------------------------------------------------*/
-void SynthesizerObject::create(FAR void **obj,
-                              AsSynthesizerMsgQueId_t msgq_id,
-                              AsSynthesizerPoolId_t pool_id) /* なんでタイプが必要なんだっけ？ */
+void SynthesizerObject::create(AsSynthesizerMsgQueId_t   msgq_id,
+                               AsSynthesizerPoolId_t     pool_id)
 {
-  FAR SynthesizerObject *syn_obj = new SynthesizerObject(msgq_id, pool_id);
+  s_syn_obj = new SynthesizerObject(msgq_id, pool_id);
 
-  if (syn_obj != NULL)
+  if (s_syn_obj != NULL)
     {
-      *obj = reinterpret_cast<void*>(syn_obj); /* これはなんで必要だったっけ？*/
-      syn_obj->run();
+      s_syn_obj->run();
     }
   else
     {
-      _ERR(player_id, AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
-      return;
+      SYNTHESIZER_OBJ_ERR(AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
     }
 }
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::run(void)
 {
@@ -145,7 +143,7 @@ void SynthesizerObject::run(void)
   MsgQueBlock *que;
   MsgPacket   *msg;
 
-  err_code = MsgLib::referMsgQueBlock(m_msgq_id, &que);
+  err_code = MsgLib::referMsgQueBlock(m_msgq_id.synthesizer, &que);
   F_ASSERT(err_code == ERR_OK);
 
   while(1)
@@ -161,110 +159,128 @@ void SynthesizerObject::run(void)
 }
 
 /*--------------------------------------------------------------------------*/
+SynthesizerObject::MsgProc SynthesizerObject::MsgProcTbl[AUD_SYN_MSG_NUM][SynthsizerStateNum] =
+{
+  /* Message type: MSG_AUD_SYN_CMD_ACT. */
+
+  {                                          /* Synthesizer status:   */
+    &SynthesizerObject::activate,            /*   InactiveState.      */
+    &SynthesizerObject::illegalEvt,          /*   ReadyState.         */
+    &SynthesizerObject::illegalEvt,          /*   ExecuteState.       */
+    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
+    &SynthesizerObject::illegalEvt,          /*   ErrorStoppingState. */
+    &SynthesizerObject::illegalEvt           /*   WaitStopState.      */
+  },
+
+  /* Message type: MSG_AUD_SYN_CMD_INIT. */
+
+  {                                          /* Synthesizer status:   */
+    &SynthesizerObject::illegalEvt,          /*   InactiveState.      */
+    &SynthesizerObject::init,                /*   ReadyState.         */
+    &SynthesizerObject::illegalEvt,          /*   ExecuteState.       */
+    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
+    &SynthesizerObject::illegalEvt,          /*   ErrorStoppingState. */
+    &SynthesizerObject::illegalEvt           /*   WaitStopState.      */
+  },
+
+  /* Message type:  MSG_AUD_SYN_CMD_PLAY. */
+
+  {                                          /* Synthesizer status:   */
+    &SynthesizerObject::illegalEvt,          /*   InactiveState.      */
+    &SynthesizerObject::execOnReady,         /*   ReadyState.         */
+    &SynthesizerObject::illegalEvt,          /*   ExecuteState.       */
+    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
+    &SynthesizerObject::illegalEvt,          /*   ErrorStoppingState. */
+    &SynthesizerObject::illegalEvt           /*   WaitStopState.      */
+  },
+
+  /* Message type: MSG_AUD_SYN_CMD_STOP. */
+
+  {                                          /* Synthesizer status:   */
+    &SynthesizerObject::illegalEvt,          /*   InactiveState.      */
+    &SynthesizerObject::illegalEvt,          /*   ReadyState.         */
+    &SynthesizerObject::stopOnExec,          /*   ExecuteState.       */
+    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
+    &SynthesizerObject::illegalEvt,          /*   ErrorStoppingState. */
+    &SynthesizerObject::stopOnWait           /*   WaitStopState.      */
+  },
+
+  /* Message type: MSG_AUD_SYN_CMD_DEACT. */
+
+  {                                          /* Synthesizer status:   */
+    &SynthesizerObject::illegalEvt,          /*   InactiveState.      */
+    &SynthesizerObject::deactivate,          /*   ReadyState.         */
+    &SynthesizerObject::illegalEvt,          /*   ExecuteState.       */
+  	&SynthesizerObject::illegalEvt,          /*   StoppingState.      */
+    &SynthesizerObject::illegalEvt,          /*   ErrorStoppingState. */
+    &SynthesizerObject::illegalEvt           /*   WaitStopState.      */
+  },
+
+  /* Message type: MSG_AUD_SYN_CMD_SET */
+  {                                          /* Synthesizer status:   */
+    &SynthesizerObject::illegalEvt,          /*   InactiveState.      */
+    &SynthesizerObject::set,                 /*   ReadyState.         */
+    &SynthesizerObject::set,                 /*   ExecuteState.       */
+    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
+    &SynthesizerObject::illegalEvt,          /*   ErrorStoppingState. */
+    &SynthesizerObject::illegalEvt,          /*   WaitStopState.      */
+  }
+};
+
+/*--------------------------------------------------------------------------*/
+SynthesizerObject::MsgProc SynthesizerObject::MsgResultTbl[AUD_SYN_RST_MSG_NUM][SynthsizerStateNum] =
+{
+  /* Message type: MSG_AUD_SYN_CMD_NEXT_REQ. */
+
+  {
+    &SynthesizerObject::illegalSinkDone,     /*   InactiveState.      */
+    &SynthesizerObject::illegalSinkDone,     /*   ReadyState.         */
+    &SynthesizerObject::nextReqOnExec,       /*   ExecuteState.       */
+    &SynthesizerObject::nextReqOnStopping,   /*   StoppingState.      */
+    &SynthesizerObject::illegalSinkDone,     /*   ErrorStoppingState. */
+    &SynthesizerObject::illegalSinkDone      /*   WaitStopState.      */
+
+  },
+
+  /* Message type: MSG_AUD_SYN_CMD_DONE. */
+
+  {
+    &SynthesizerObject::illegalCompDone,      /*   InactiveState.      */
+    &SynthesizerObject::illegalCompDone,      /*   ReadyState.         */
+    &SynthesizerObject::cmpDoneOnExec,       /*   ExecuteState.       */
+    &SynthesizerObject::cmpDoneOnStopping,   /*   StoppingState.      */
+    &SynthesizerObject::illegalSinkDone,     /*   ErrorStoppingState. */
+    &SynthesizerObject::illegalCompDone      /*   WaitStopState.      */
+  },
+
+  /* Message type: MSG_AUD_SYN_CMD_SET_DONE. */
+
+  {
+    &SynthesizerObject::illegalCompDone,     /*   InactiveState.      */
+    &SynthesizerObject::illegalCompDone,      /*   ReadyState.         */
+    &SynthesizerObject::cmpDoneOnExec,       /*   ExecuteState.       */
+    &SynthesizerObject::cmpDoneOnStopping,   /*   StoppingState.      */
+    &SynthesizerObject::illegalSinkDone,     /*   ErrorStoppingState. */
+    &SynthesizerObject::illegalCompDone      /*   WaitStopState.      */
+  },
+};
+
+/*--------------------------------------------------------------------------*/
 void SynthesizerObject::parse(MsgPacket *msg)
 {
   uint event = MSG_GET_SUBTYPE(msg->getType());
 
   if (MSG_IS_REQUEST(msg->getType()) != 0)
     {
-      F_ASSERT(event < AUD_PLY_MSG_NUM); /* eventの定義どこ？*/
+      F_ASSERT(event < AUD_SYN_MSG_NUM);
       (this->*MsgProcTbl[event][m_state.get()])(msg);
     }
   else
     {
-      F_ASSERT(event < AUD_PLY_RST_MSG_NUM); /* eventの定義どこ？*/
+      F_ASSERT(event < AUD_SYN_RST_MSG_NUM);
       (this->*MsgResultTbl[event][m_state.get()])(msg);
     }
 }
-
-/*--------------------------------------------------------------------------*/
-SynthesizerObject::MsgProc SynthesizerObject::MsgProcTbl[_MSG_NUM][SynStateNum] =
-{
-  /* Message type: MSG_AUD_SYN_CMD_ACT. */
-
-  {                                  /* Synthesizer status:    */
-    &SynthesizerObject::activate,            /*   BootedState.        */
-    &SynthesizerObject::illegalEvt,          /*   ReadyState.         */
-    &SynthesizerObject::illegalEvt,          /*   ExecuteState.       */
-    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
-    &SynthesizerObject::illegalEvt           /*   WaitStopState.      */ /*これ必要？*/
-  },
-
-  /* Message type: MSG_AUD_SYN_CMD_INIT. */
-
-  {                                  /* Synthesizer status:    */
-    &SynthesizerObject::illegalEvt,          /*   BootedState.        */
-    &SynthesizerObject::init,                /*   ReadyState.         */
-    &SynthesizerObject::illegalEvt,          /*   ExecuteState.       */
-    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
-    &SynthesizerObject::illegalEvt           /*   WaitStopState.      */
-  },
-
-  /* Message type:  MSG_AUD_PLY_CMD_PLAY. */
-
-  {                                  /* Synthesizer status:    */
-    &SynthesizerObject::illegalEvt,          /*   BootedState.        */
-    &SynthesizerObject::execOnReady,         /*   ReadyState.         */
-    &SynthesizerObject::illegalEvt,          /*   ExecuteState.       */
-    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
-    &SynthesizerObject::illegalEvt           /*   WaitStopState.      */
-  },
-
-  /* Message type: MSG_AUD_SYN_CMD_STOP. */
-
-  {                                  /* Synthesizer status:    */
-    &SynthesizerObject::illegalEvt,          /*   BootedState.        */
-    &SynthesizerObject::illegalEvt,          /*   ReadyState.         */
-    &SynthesizerObject::stopOnExec,          /*   ExecuteState.       */
-    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
-    &SynthesizerObject::stopOnWait           /*   WaitStopState.      */
-  },
-
-  /* Message type: MSG_AUD_SYN_CMD_DEACT. */
-
-  {                                  /* Synthesizer status:    */
-    &SynthesizerObject::illegalEvt,          /*   BootedState.        */
-    &SynthesizerObject::deactivate,          /*   ReadyState.         */
-    &SynthesizerObject::illegalEvt,          /*   ExecuteState.       */
-  	&SynthesizerObject::illegalEvt,          /*   StoppingState.      */
-    &SynthesizerObject::illegalEvt           /*   WaitStopState.      */
-  },
-
-  /* Message type: MSG_AUD_SYN_CMD_SET */
-  {                                  /* Synthesizer status:    */
-    &SynthesizerObject::illegalEvt,          /*   BootedState.        */
-    &SynthesizerObject::set,                 /*   ReadyState.         */
-    &SynthesizerObject::set,                 /*   ExecuteState.       */
-    &SynthesizerObject::illegalEvt,          /*   StoppingState.      */
-    &SynthesizerObject::illegalEvt,          /*   WaitStopState.      */
-  }
-};
-
-/*--------------------------------------------------------------------------*/
-SynthesizerObject::MsgProc SynthesizerObject::MsgResultTbl[_MSG_NUM][SynStateNum] =
-{
-  /* Message type: MSG_AUD_SYN_CMD_NEXT_REQ. */
-
-  {
-    &SynthesizerObject::illegalSinkDone,     /*   BootedState.        */
-    &SynthesizerObject::illegalSinkDone,     /*   ReadyState.         */
-    &SynthesizerObject::nextReqOnExec,       /*   ExecuteState.       */
-    &SynthesizerObject::nextReqOnStopping,   /*   StoppingState.      */
-    &SynthesizerObject::illegalSinkDone      /*   WaitStopState.      */
-
-  },
-
-  /* Message type: MSG_AUD_SYN_CMD_CMP_DONE. */
-
-  {
-    &SynthesizerObject::illegalCmpDone,      /*   BootedState.        */
-    &SynthesizerObject::illegalCmpDone,      /*   ReadyState.         */
-    &SynthesizerObject::cmpDoneOnexec,       /*   PlayState.          */
-    &SynthesizerObject::cmpDoneOnStopping,   /*   StoppingState.      */
-    &SynthesizerObject::illegalCmpDone       /*   WaitStopState.      */
-  },
-};
-
 
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::reply(AsSynthesizerEvent evtype, MsgType msg_type, uint32_t result)
@@ -277,12 +293,12 @@ void SynthesizerObject::reply(AsSynthesizerEvent evtype, MsgType msg_type, uint3
     {
       AudioObjReply cmplt((uint32_t)msg_type,
                            AS_OBJ_REPLY_TYPE_REQ,
-                           AS_MODULE_ID_Synthesizer_OBJ,
+                           AS_MODULE_ID_SYNTHESIZER_OBJ,
                            result);
       err_t er = MsgLib::send<AudioObjReply>(m_msgq_id.mng,
                                              MsgPriNormal,
                                              MSG_TYPE_AUD_RES,
-                                             m_msgq_id,
+                                             m_msgq_id.synthesizer,
                                              cmplt);
       if (ERR_OK != er)
         {
@@ -295,38 +311,55 @@ void SynthesizerObject::reply(AsSynthesizerEvent evtype, MsgType msg_type, uint3
 void SynthesizerObject::illegalEvt(MsgPacket *msg)
 {
   uint msgtype = msg->getType();
+
   msg->moveParam<SynthesizerCommand>();
 
-  reply(msgtype, (MsgType)msgtype, AS_ECODE_STATE_VIOLATION);
+  /* Extract and abandon message data */
+
+  uint32_t idx = msgtype - MSG_AUD_SYN_CMD_ACT;
+
+  AsSynthesizerEvent table[] =
+  {
+    AsSynthesizerEventAct,
+    AsSynthesizerEventInit,
+    AsSynthesizerEventStart,
+    AsSynthesizerEventStop,
+    AsSynthesizerEventDeact,
+    AsSynthesizerEventSet
+  };
+
+  reply(table[idx], (MsgType)msgtype, AS_ECODE_STATE_VIOLATION);
+}
+
+/*--------------------------------------------------------------------------*/
+void SynthesizerObject::stopOnExec(MsgPacket *msg)
+{
+  msg->moveParam<SynthesizerCommand>();
+
+  reply(AsSynthesizerEventStop, msg->getType(), AS_ECODE_OK);
+}
+
+/*--------------------------------------------------------------------------*/
+void SynthesizerObject::stopOnWait(MsgPacket *msg)
+{
+  msg->moveParam<SynthesizerCommand>();
+
+  reply(AsSynthesizerEventStop, msg->getType(), AS_ECODE_OK);
 }
 
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::activate(MsgPacket *msg)
 {
-  AsActivateSynthesizer act = msg->moveParam<SynthesizerCommand>().act_param;
-  bool result;
-
-/*  _DBG("ACT: indev %d, outdev %d\n",
-                   act.param.input_device,
-                   act.param.output_device);*/
+  AsActivateSynthesizer act    = msg->moveParam<SynthesizerCommand>().act_param;
+  bool                  result = AS_ECODE_OK;
 
   /* Set event callback */
 
-	
-	/* ocsillatorにactivateを発行?*/
-	
-	
   m_callback = act.cb;
 
-  if (!checkAndSetMemPool())
-    {
-      reply(AsSynthesizerEventAct,
-            msg->getType(),
-            AS_ECODE_CHECK_MEMORY_POOL_ERROR);
-      return;
-    }
-	
-	
+  /* Active */
+
+  reply(AsSynthesizerEventAct, msg->getType(), result);
 }
 
 /*--------------------------------------------------------------------------*/
@@ -334,71 +367,207 @@ void SynthesizerObject::deactivate(MsgPacket *msg)
 {
   msg->moveParam<SynthesizerCommand>();
 
-  DBG("DEACT:\n");
-
-  if (AS_ECODE_OK != unloadCodec())
-    {
-      reply(AsEventDeact, msg->getType(), AS_ECODE_DSP_UNLOAD_ERROR);
-      return;
-    }
+  SYNTHESIZER_OBJ_DBG("DEACT:\n");
 
   reply(AsSynthesizerEventDeact, msg->getType(), AS_ECODE_OK);
-  m_state = BootedState;
+
+  m_state = SynthsizerStateInactive;
 }
 
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::init(MsgPacket *msg)
 {
-  AsInitSynthesizerParam param = msg->moveParam<SynthesizerCommand>().init_param;
-  uint8_t result;
-  uint32_t dsp_inf;
+  AsInitSynthesizerParam param  = msg->moveParam<SynthesizerCommand>().init_param;
+  uint8_t                result = AS_ECODE_OK;
 
-/*  _DBG("INIT: ch num %d, bit len %d, codec %d(%s), fs %d\n",
-                   param.channel_number,
-                   param.bit_length,
-                   param.codec_type,
-                   param.dsp_path,
-                   param.sampling_rate);*/
-
-/*パラメータチェック*/
-	
-	
-  if (result == AS_ECODE_OK)
-    {
-      /* Update codec accordingt to audio data type. */
-
-      /* NOTE : Codec loading process was Moved to here from play()
-       *        for reducing memory usage. Exclude Gapless once.
-       */
-
-              result = loadCodec(next_codec, &param, &dsp_inf);
-    }
-  else
-    {
-      MEDIA_PLAYER_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
-    }
+  SYNTHESIZER_OBJ_DBG("INIT: ch num %d, bit len %d, codec %d(%s), fs %d\n",
+                      param.channel_no,
+                      param.bit_length,
+                      param.type,
+                      param.frequency);
 
   reply(AsSynthesizerEventInit, msg->getType(), result);
 }
 
-/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+void SynthesizerObject::illegalSinkDone(MsgPacket *msg)
+{
+  msg->moveParam<SynthesizerCommand>();
+  SYNTHESIZER_OBJ_ERR(AS_ATTENTION_SUB_CODE_ILLEGAL_REQUEST);
+}
+
+/*--------------------------------------------------------------------------*/
+void SynthesizerObject::illegalCompDone(MsgPacket *msg)
+{
+  msg->moveParam<SynthesizerCommand>();
+  SYNTHESIZER_OBJ_ERR(AS_ATTENTION_SUB_CODE_ILLEGAL_REQUEST);
+}
+
+/*--------------------------------------------------------------------------*/
 void SynthesizerObject::execOnReady(MsgPacket *msg)
 {}
-/*--------------------------------------------------------------------------*/
-void SynthesizerObject::stopOnExec(MsgPacket *msg)
-{}
+
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::set(MsgPacket *msg)
+{}
+
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::nextReqOnExec(MsgPacket *msg)
 {}
+
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::nextReqOnStopping(MsgPacket *msg)
 {}
+
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::cmpDoneOnExec(MsgPacket *msg)
 {}
+
 /*--------------------------------------------------------------------------*/
 void SynthesizerObject::cmpDoneOnStopping(MsgPacket *msg)
 {}
 
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+/*--------------------------------------------------------------------------*/
+bool AS_CreateMediaSynthesizer(FAR AsCreateSynthesizerParam_t *param,
+                                   AudioAttentionCb            attcb)
+{
+  /* Parameter check */
+
+  if (param == NULL)
+    {
+      return false;
+    }
+
+  return CreateSynthesizer(param->msgq_id, param->pool_id, attcb);
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_CreateMediaSynthesizer(FAR AsCreateSynthesizerParam_t *param)
+{
+  return AS_CreateMediaSynthesizer(param, NULL);
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_ActivateMediaSynthesizer(FAR AsActivateSynthesizer *actparam)
+{
+  /* Parameter check */
+
+  if (actparam == NULL)
+    {
+      return false;
+    }
+
+  /* Activate */
+
+  SynthesizerCommand cmd;
+
+  cmd.act_param = *actparam;
+
+  err_t er = MsgLib::send<SynthesizerCommand>(s_msgq_id.synthesizer,
+                                              MsgPriNormal,
+                                              MSG_AUD_SYN_CMD_ACT,
+                                              NULL,
+                                              cmd);
+  F_ASSERT(er == ERR_OK);
+
+  return true;
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_InitMediaSynthesizer(FAR AsInitSynthesizerParam *initparam)
+{
+  /* Parameter check */
+
+  if (initparam == NULL)
+    {
+      return false;
+    }
+
+  /* Init */
+
+  SynthesizerCommand cmd;
+
+  cmd.init_param = *initparam;
+
+  err_t er = MsgLib::send<SynthesizerCommand>(s_msgq_id.synthesizer,
+                                              MsgPriNormal,
+                                              MSG_AUD_SYN_CMD_INIT,
+                                              NULL,
+                                              cmd);
+  F_ASSERT(er == ERR_OK);
+
+  return true;
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_StartMediaSynthesizer(void)
+{
+  /* Start */
+
+  SynthesizerCommand cmd;
+
+  err_t er = MsgLib::send<SynthesizerCommand>(s_msgq_id.synthesizer,
+                                              MsgPriNormal,
+                                              MSG_AUD_MRC_CMD_START,
+                                              NULL,
+                                              cmd);
+  F_ASSERT(er == ERR_OK);
+
+  return true;
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_StopMediaSynthesizer(void)
+{
+  /* Stop */
+
+  SynthesizerCommand cmd;
+
+  err_t er = MsgLib::send<SynthesizerCommand>(s_msgq_id.synthesizer,
+                                              MsgPriNormal,
+                                              MSG_AUD_MRC_CMD_STOP,
+                                              NULL,
+                                              cmd);
+  F_ASSERT(er == ERR_OK);
+
+  return true;
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_DeactivateMediaSynthesizer(void)
+{
+  SynthesizerCommand cmd;
+
+  err_t er = MsgLib::send<SynthesizerCommand>(s_msgq_id.synthesizer,
+                                              MsgPriNormal,
+                                              MSG_AUD_SYN_CMD_DEACT,
+                                              NULL,
+                                              cmd);
+  F_ASSERT(er == ERR_OK);
+
+  return true;
+}
+
+/*--------------------------------------------------------------------------*/
+bool AS_DeleteMediaSynthesizer(void)
+{
+  if (s_syn_obj == NULL)
+    {
+      SYNTHESIZER_OBJ_ERR(AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
+      return false;
+    }
+
+  task_delete(s_syn_pid);
+  delete s_syn_obj;
+  s_syn_obj = NULL;
+
+  /* Unregister attention callback */
+
+  SYNTHESIZER_OBJ_UNREG_ATTCB();
+
+  return true;
+}

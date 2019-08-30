@@ -1,5 +1,5 @@
 /****************************************************************************
- * audio_recorder/worker/userproc/src/oscillator.cpp
+ * audio_oscillator/worker/userproc/src/oscillator.cpp
  *
  *   Copyright 2018 Sony Semiconductor Solutions Corporation
  *
@@ -101,7 +101,7 @@ void Oscillator::exec(Wien2::Apu::Wien2ApuCmd *cmd)
 	for(int i = 0;i<m_channel_num;i++){
 		q15_t* ptr = (q15_t*)cmd->exec_osc_cmd.buffer.p_buffer + i;
 		for(uint32_t j = 0;j<cmd->exec_osc_cmd.buffer.size;j++){ /* サンプルに変える必要ある？*/
-			*ptr = arm_sin_q15 (m_theta[i]);
+		  *ptr = arm_sin_q15 (m_theta[i]);
 			(m_theta[i] + m_omega[i]) < 1 ? m_theta[i] = (m_theta[i] + m_omega[i]) :  m_theta[i] = (m_theta[i] + m_omega[i] -1);
 		}
 	}

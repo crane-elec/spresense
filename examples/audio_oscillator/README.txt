@@ -1,5 +1,5 @@
 
-Usage of audio_recorder
+Usage of audio_oscillator
 ===========================
 
 Usage
@@ -18,9 +18,9 @@ Select options in below.
 - [Examples]
     [Audio recorder example] <= Y
 
-Or use audio_recorder default configuration
+Or use audio_oscillator default configuration
 
-$ ./tools/config.py examples/audio_recorder
+$ ./tools/config.py examples/audio_oscillator
 
 Build and install
 --------------------------
@@ -60,8 +60,8 @@ NOTE
 Execute
 --------------------------
 
-Type 'audio_recorder' on nsh.
-nsh>audio_recorder
+Type 'audio_oscillator' on nsh.
+nsh>audio_oscillator
 
 Audio from the microphone is recorded in the WAV file for 10 seconds.
 

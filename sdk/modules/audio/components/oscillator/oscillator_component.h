@@ -50,17 +50,18 @@ using namespace MemMgrLite;
 
 __WIEN2_BEGIN_NAMESPACE
 
-typedef bool (*EncCompCallback)(void*);
+typedef uint32_t OscllicatorComponentHandler;
+
+typedef bool (*OscCompCallback)(void*);
 
 struct InitOscParam
 {
-  WaveType         type;
-  uint8_t          channel_num;
-  AudioPcmBitWidth bit_width;
-  uint32_t         sampling_rate;
-  OscCompCallback  callback;
+  WaveMode          type;
+  uint8_t           channel_num;
+  AudioPcmBitWidth  bit_width;
+  uint32_t          sampling_rate;
+  OscCompCallback   callback;
 };
-
 
 struct ExecOscParam
 {
@@ -122,7 +123,7 @@ private:
   PoolId m_apu_pool_id;
 
   void send_apu(Apu::Wien2ApuCmd*);
-  EncCompCallback m_callback;
+  OscCompCallback m_callback;
 
   void *m_dsp_handler;
 };

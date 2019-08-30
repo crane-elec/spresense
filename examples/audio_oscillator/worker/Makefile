@@ -1,7 +1,7 @@
 ############################################################################
-# audio_recorder/worker/Makefile
+# audio_oscillator/worker/Makefile
 #
-#   Copyright 2018 Sony Semiconductor Solutions Corporation
+#   Copyright 2019 Sony Semiconductor Solutions Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -53,6 +53,8 @@ WORKER_ELF = PREPROC
 VPATH += userproc/src
 
 CXXSRCS = main.cpp oscillator.cpp
+
+#LDLIBS += -larm_cortexM4lf_math
 
 CXXELFFLAGS += -Os
 ifeq ($(WINTOOL),y)
