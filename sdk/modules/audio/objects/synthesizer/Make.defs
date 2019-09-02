@@ -1,7 +1,7 @@
 ############################################################################
-# audio_oscillator/worker/lib/Makefile
+# modules/audio/objects/synthesizer/Make.defs
 #
-#   Copyright 2018 Sony Semiconductor Solutions Corporation
+#   Copyright 2019 Sony Semiconductor Solutions Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -33,27 +33,10 @@
 #
 ############################################################################
 
--include $(TOPDIR)/Make.defs
--include $(SDKDIR)/Make.defs
+ifeq ($(CONFIG_AUDIOUTILS_SYNTHESIZER),y)
 
-BIN = libasmpw$(LIBEXT)
-WORKER_DIR = $(SDKDIR)$(DELIM)modules$(DELIM)asmp$(DELIM)worker
-LIB = $(WORKER_DIR)$(DELIM)libasmpw$(LIBEXT)
+CXXSRCS += synthesizer_obj.cpp
+VPATH   += objects/synthesizer
+DEPPATH += --dep-path objects/synthesizer
 
-all: $(BIN)
-.PHONY: depend clean distclean
-
-depend:
-	$(Q) $(MAKE) -C $(WORKER_DIR) TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" depend
-
-$(LIB): depend
-	$(Q) $(MAKE) -C $(WORKER_DIR) TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" $(BIN)
-
-$(BIN): $(LIB)
-	$(Q) install $< $@
-
-clean:
-	$(call DELFILE, $(BIN))
-	$(call CLEAN)
-
-distclean: clean
+endif

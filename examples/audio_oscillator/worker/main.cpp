@@ -1,5 +1,5 @@
 /****************************************************************************
- * audio_recorder/worker/userproc/main.cpp
+ * audio_oscillator/worker/main.cpp
  *
  *   Copyright 2018 Sony Semiconductor Solutions Corporation
  *

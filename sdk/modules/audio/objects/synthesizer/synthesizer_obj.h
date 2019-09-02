@@ -33,8 +33,8 @@
  *
  ****************************************************************************/
 
-#ifndef __MODULES_AUDIO_OBJECTS_MEDIA_RECORDER_MEDIA_RECORDER_OBJ_H
-#define __MODULES_AUDIO_OBJECTS_MEDIA_RECORDER_MEDIA_RECORDER_OBJ_H
+#ifndef __MODULES_AUDIO_OBJECTS_SYNTHESIZER_OBJ_H
+#define __MODULES_AUDIO_OBJECTS_SYNTHESIZER_OBJ_H
 
 /****************************************************************************
  * Included Files
@@ -44,7 +44,7 @@
 #include "memutils/message/Message.h"
 #include "memutils/s_stl/queue.h"
 #include "memutils/memory_manager/MemHandle.h"
-#include "audio/audio_high_level_api.h"
+#include "audio/audio_synthesizer_api.h"
 #include "audio/audio_message_types.h"
 #include "components/oscillator/oscillator_component.h"
 #include "audio_state.h"
@@ -59,19 +59,21 @@ __WIEN2_BEGIN_NAMESPACE
  * Public Types
  ****************************************************************************/
 
-class SynthsizerObject {
+class SynthesizerObject {
 public:
-  static void create(AsSynthsizerMsgQueId_t msgq_id,
-                     AsSynthsizerPoolId_t pool_id);
+  static void create(AsSynthesizerMsgQueId_t msgq_id,
+                     AsSynthesizerPoolId_t   pool_id);
 
 private:
-  SynthsizerObject(AsSynthsizerMsgQueId_t msgq_id,
-                   AsSynthsizerPoolId_t pool_id);
-    m_msgq_id(msgq_id),
-    m_pool_id(pool_id),
+  SynthesizerObject(AsSynthesizerMsgQueId_t msgq_id,
+                    AsSynthesizerPoolId_t   pool_id)
+    : m_msgq_id(msgq_id)
+    , m_pool_id(pool_id)
+    , m_state(AS_MODULE_ID_SYNTHESIZER_OBJ, "", SynthsizerStateInactive)
+    , m_callback(NULL)
   {}
 
-  enum SynthsizerState_e
+  enum SynthesizerState_e
   {
     SynthsizerStateInactive = 0,
     SynthsizerStateReady,
@@ -82,37 +84,47 @@ private:
     SynthsizerStateNum
   };
 
-  AsSynthsizerMsgQueId_t m_msgq_id;
-  AsSynthsizerPoolId_t   m_pool_id;
+  AsSynthesizerMsgQueId_t m_msgq_id;
+  AsSynthesizerPoolId_t   m_pool_id;
 
-  AudioState<SynthsizerState_e> m_state;
+  AudioState<SynthesizerState_e> m_state;
 
   OscllicatorComponentHandler m_osc_hdlr;
 
-  SynthsizerCallback m_callback;
+  SynthesizerCallback m_callback;
+
+  typedef void (SynthesizerObject::*MsgProc)(MsgPacket*);
+
+  static  MsgProc MsgProcTbl[AUD_SYN_MSG_NUM][SynthsizerStateNum];
+  static  MsgProc MsgResultTbl[AUD_SYN_RST_MSG_NUM][SynthsizerStateNum];
 
   void run();
   void parse(MsgPacket *);
 
-  void reply(AsSynthsizerEvent evtype,
-             MsgType msg_type,
-             uint32_t result);
+  void reply(AsSynthesizerEvent evtype,
+             MsgType            msg_type,
+             uint32_t           result);
 
-  void illegal(MsgPacket *);
+  void illegalEvt(MsgPacket *);
   void activate(MsgPacket *);
   void deactivate(MsgPacket *);
 
   void init(MsgPacket *);
   void execOnReady(MsgPacket *);
   void stopOnExec(MsgPacket *);
+  void stopOnWait(MsgPacket *);
   void set(MsgPacket *);
-//  void stopOnWait(MsgPacket *);
+
+  void illegalSinkDone(MsgPacket *);
+  void illegalCompDone(MsgPacket *);
 
   void nextReqOnExec(MsgPacket *msg);
   void nextReqOnStopping(MsgPacket *msg);
   void cmpDoneOnExec(MsgPacket *msg);
   void cmpDoneOnStopping(MsgPacket *msg);
 
+  bool checkAndSetMemPool();
+};
 
 /****************************************************************************
  * Public Data
@@ -128,5 +140,4 @@ private:
 
 __WIEN2_END_NAMESPACE
 
-#endif /* __MODULES_AUDIO_OBJECTS_MEDIA_RECORDER_MEDIA_RECORDER_OBJ_H */
-
+#endif /* __MODULES_AUDIO_OBJECTS_SYNTHESIZER_OBJ_H */

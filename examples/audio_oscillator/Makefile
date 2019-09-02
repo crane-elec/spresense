@@ -1,5 +1,5 @@
 ############################################################################
-# audio_recorder/Makefile
+# audio_oscillator/Makefile
 #
 #   Copyright 2018 Sony Semiconductor Solutions Corporation
 #

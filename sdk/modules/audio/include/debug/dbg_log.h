@@ -377,6 +377,20 @@
                                         AS_MODULE_ID_RECOGNITION_OBJ, \
                                         fmt, \
                                         ##__VA_ARGS__)
+#define SYNTHESIZER_OBJ_ERR(code)     DBG_LOGF_ERROR( \
+                                        AS_MODULE_ID_SYNTHESIZER_OBJ, \
+                                        0, \
+                                        code)
+#define SYNTHESIZER_OBJ_DBG(fmt, ...) AUDIO_LOG_EVENT( \
+                                        AS_MODULE_ID_SYNTHESIZER_OBJ, \
+                                        fmt, \
+                                        ##__VA_ARGS__)
+#define SYNTHESIZER_OBJ_REG_ATTCB(att_cb) ATTENTION_CB_REGISTER( \
+                                            AS_MODULE_ID_RECOGNITION_OBJ, \
+                                            att_cb)
+#define SYNTHESIZER_OBJ_UNREG_ATTCB() ATTENTION_CB_UNREGISTER( \
+                                        AS_MODULE_ID_SYNTHESIZER_OBJ)
+
 
 #define RECOGNITION_CMP_REG_ATTCB(att_cb) ATTENTION_CB_REGISTER( \
                                             AS_MODULE_ID_RECOGNITION_CMP, \

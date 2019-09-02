@@ -33,8 +33,8 @@
  *
  ****************************************************************************/
 
-#ifndef __MODULES_INCLUDE_AUDIO_AUDIO_RECORDER_API_H
-#define __MODULES_INCLUDE_AUDIO_AUDIO_RECORDER_API_H
+#ifndef __MODULES_INCLUDE_AUDIO_SYNTHESIZER_API_H
+#define __MODULES_INCLUDE_AUDIO_SYNTHESIZER_API_H
 
 /**
  * @defgroup audioutils Audio Utility
@@ -42,7 +42,7 @@
  */
 
 /**
- * @defgroup audioutils_audio_recorder_api Audio Synthesizer API
+ * @defgroup audioutils_audio_synthesizer_api Audio Synthesizer API
  * @{
  *
  * @file       audio_synthesizer_api.h
@@ -133,52 +133,54 @@ typedef bool (*SynthesizerCallback)(AsSynthesizerEvent evtype, uint32_t result, 
 
 typedef struct
 {
+  SynthesizerCallback        cb;
+
   AsActivateSynthesizerParam param;
-	
+
 } AsActivateSynthesizer;
 
 /** InitSynthesizer Command (#AUDCMD_INITSYN) parameter */
 
 typedef struct
 {
-  WaveType         type;
-  uint8_t          channel_no;
-  uint32_t         frequency;
-  AudioPcmBitWidth bit_width;
+  uint32_t type;
+  uint8_t  channel_no;
+  uint32_t frequency;
+  uint8_t  bit_width;
 
   char dsp_path[AS_AUDIO_DSP_PATH_LEN];
-	
+
 } AsInitSynthesizerParam;
 
-/** RecorderCommand definition */
+/** SynthesizerCommand definition */
 typedef union
 {
-  /*! \brief [in] for ActivateRecorder
-   * (Object Interface==AS_ActivateMediaRecorder)
+  /*! \brief [in] for ActivateSynthesizer
+   * (Object Interface==AS_ActivateMediaSynthesizer)
    */
  
-  AsActivateRecorder act_param;
+  AsActivateSynthesizer act_param;
 
 
-  /*! \brief [in] for InitRecorder
-   * (Object Interface==AS_InitMediaRecorder)
+  /*! \brief [in] for InitSynthesizer
+   * (Object Interface==AS_InitMediaSynthesizer)
    */
 
-  AsInitRecorderParam init_param;
+  AsInitSynthesizerParam init_param;
 
   /*! \brief [in] for SetMicGain
-   * (Object Interface==AS_SetMicGainMediaRecorder)
+   * (Object Interface==AS_SetMicGainMediaSynthesizer)
    */
 
-} RecorderCommand;
+} SynthesizerCommand;
 
 /** Message queue ID parameter of activate function */
 
 typedef struct
 {
-  /*! \brief [in] Message queue id of recorder */
+  /*! \brief [in] Message queue id of synthesizer */
 
-  uint8_t recorder;
+  uint8_t synthesizer;
 
   /*! \brief [in] Message queue id of audio_manager */
 
@@ -187,7 +189,7 @@ typedef struct
   /*! \brief [in] Message queue id of DSP */
 
   uint8_t dsp;
-} AsRecorderMsgQueId_t;
+} AsSynthesizerMsgQueId_t;
 
 /** Pool ID parameter of activate function */
 
@@ -204,7 +206,7 @@ typedef struct
   /*! \brief [in] Memory pool id of dsp command data */
 
   uint8_t dsp;
-} AsRecorderPoolId_t;
+} AsSynthesizerPoolId_t;
 
 /** Activate function parameter */
 
@@ -212,12 +214,12 @@ typedef struct
 {
   /*! \brief [in] ID for sending messages to each function */
 
-  AsRecorderMsgQueId_t msgq_id;
+  AsSynthesizerMsgQueId_t msgq_id;
 
   /*! \brief [in] ID of memory pool for processing data */
 
-  AsRecorderPoolId_t   pool_id;
-} AsCreateRecorderParam_t;
+  AsSynthesizerPoolId_t   pool_id;
+} AsCreateSynthesizerParam_t;
 
 /****************************************************************************
  * Public Data
@@ -232,29 +234,29 @@ typedef struct
  ****************************************************************************/
 
 /**
- * @brief Create audio recorder
+ * @brief Create audio synthesizer
  *
- * @param[in] param: Parameters of resources used by audio recorder
- * @param[in] attcb: Attention callback of Recorder. NULL means no callback.
+ * @param[in] param: Parameters of resources used by audio synthesizer
+ * @param[in] attcb: Attention callback of Synthesizer. NULL means no callback.
  *
  * @retval     true  : success
  * @retval     false : failure
  */
 
-bool AS_CreateMediaRecorder(FAR AsCreateRecorderParam_t *param,
+bool AS_CreateMediaSynthesizer(FAR AsCreateSynthesizerParam_t *param,
                             AudioAttentionCb attcb);
 
 __attribute__((deprecated(
                  "\n \
                   \n Deprecated create API is used. \
-                  \n Use \"AS_CreateMediaRecorder(AsCreateRecorderParam_t, \
+                  \n Use \"AS_CreateMediaSynthesizer(AsCreateSynthesizerParam_t, \
                   \n                             AudioAttentionCb)\". \
                   \n \
                   \n")))
-bool AS_CreateMediaRecorder(FAR AsCreateRecorderParam_t *param);
+bool AS_CreateMediaSynthesizer(FAR AsCreateSynthesizerParam_t *param);
 
 /**
- * @brief Activate audio recorder
+ * @brief Activate audio synthesizer
  *
  * @param[in] param: Activation parameters
  *
@@ -262,10 +264,10 @@ bool AS_CreateMediaRecorder(FAR AsCreateRecorderParam_t *param);
  * @retval     false : failure
  */
 
-bool AS_ActivateMediaRecorder(FAR AsActivateRecorder *actparam);
+bool AS_ActivateMediaSynthesizer(FAR AsActivateSynthesizer *actparam);
 
 /**
- * @brief Init audio recorder
+ * @brief Init audio synthesizer
  *
  * @param[in] param: Initialization parameters
  *
@@ -273,57 +275,45 @@ bool AS_ActivateMediaRecorder(FAR AsActivateRecorder *actparam);
  * @retval     false : failure
  */
 
-bool AS_InitMediaRecorder(FAR AsInitRecorderParam *initparam);
+bool AS_InitMediaSynthesizer(FAR AsInitSynthesizerParam *initparam);
 
 /**
- * @brief Start audio recorder
+ * @brief Start audio synthesizer
  *
  * @retval     true  : success
  * @retval     false : failure
  */
 
-bool AS_StartMediaRecorder(void);
+bool AS_StartMediaSynthesizer(void);
 
 /**
- * @brief Stop audio recorder
+ * @brief Stop audio synthesizer
  *
  * @retval     true  : success
  * @retval     false : failure
  */
 
-bool AS_StopMediaRecorder(void);
+bool AS_StopMediaSynthesizer(void);
 
 /**
- * @brief Deactivate audio recorder
+ * @brief Deactivate audio synthesizer
  *
  * @retval     true  : success
  * @retval     false : failure
  */
 
-bool AS_DeactivateMediaRecorder(void);
+bool AS_DeactivateMediaSynthesizer(void);
 
 /**
- * @brief Deactivate audio recorder
+ * @brief Deactivate audio synthesizer
  *
  * @retval     true  : success
  * @retval     false : failure
  */
 
-bool AS_DeleteMediaRecorder(void);
+bool AS_DeleteMediaSynthesizer(void);
 
-/**
- * @brief Set mic gain for audio recorder
- *
- * @param[in] gain    : Mic gain
- *
- * @retval     true  : success
- * @retval     false : failure
- * @note Refer to AsRecorderMicGainParam for gain setting range.
- */
-
-bool AS_SetMicGainMediaRecorder(FAR AsRecorderMicGainParam *micgain_param);
-
-#endif  /* __MODULES_INCLUDE_AUDIO_AUDIO_RECORDER_API_H */
+#endif  /* __MODULES_INCLUDE_AUDIO_SYNTHESIZER_API_H */
 /**
  * @}
  */

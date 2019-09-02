@@ -1,5 +1,5 @@
 /****************************************************************************
- * audio_recorder/worker/userproc/include/oscillator.h
+ * audio_oscillator/worker/userproc/include/oscillator.h
  *
  *   Copyright 2018 Sony Semiconductor Solutions Corporation
  *
@@ -36,15 +36,12 @@
 #ifndef __OSCILLATOR_H__
 #define __OSCILLATOR_H__
 
-#include <string.h>
-
 #include <wien2_common_defs.h>
 #include <apus/apu_cmd.h>
 
-extern "C"
-{
+#include <cstdlib>
+#include "../../arm-none-eabi/include/math.h"
 #include "arm_math.h"
-}
 
 #define MAX_CHANNEL_NUMBER 4
 

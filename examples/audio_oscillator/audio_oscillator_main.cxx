@@ -1,7 +1,7 @@
 /****************************************************************************
- * audio_recorder/audio_oscillator_main.cxx
+ * audio_oscillator/audio_oscillator_main.cxx
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2019 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,8 +61,8 @@
 #include "include/msgq_pool.h"
 #include "include/pool_layout.h"
 #include "include/fixed_fence.h"
-#ifdef CONFIG_EXAMPLES_AUDIO_RECORDER_USEPREPROC
-#endif /* CONFIG_EXAMPLES_AUDIO_RECORDER_USEPREPROC */
+#ifdef CONFIG_EXAMPLES_AUDIO_OSCILLATOR_USEPREPROC
+#endif /* CONFIG_EXAMPLES_AUDIO_OSCILLATOR_USEPREPROC */
 
 #include <arch/chip/cxd56_audio.h>
 
@@ -106,7 +106,7 @@ using namespace MemMgrLite;
 
 /* Recording time(sec). */
 
-#define RECORDER_REC_TIME 10
+#define OSCILLATOR_REC_TIME 10
 
 /****************************************************************************
  * Private Function Prototypes
@@ -178,6 +178,8 @@ static bool app_create_audio_sub_system(void)
   /* Create OutputMixer. */
 
   /* Create Renderer. */
+
+  /* Create Synthesizer. */
 
   return result;
 }
@@ -264,8 +266,8 @@ static bool app_stop_oscillator(void)
   return result;
 }
 
-#ifdef CONFIG_EXAMPLES_AUDIO_RECORDER_USEPREPROC
-#endif /* CONFIG_EXAMPLES_AUDIO_RECORDER_USEPREPROC */
+#ifdef CONFIG_EXAMPLES_AUDIO_OSCILLATOR_USEPREPROC
+#endif /* CONFIG_EXAMPLES_AUDIO_OSCILLATOR_USEPREPROC */
 
 static bool app_set_clkmode(int clk_mode)
 {
@@ -414,7 +416,7 @@ extern "C" int main(int argc, FAR char *argv[])
 extern "C" int audio_oscillator_main(int argc, char *argv[])
 #endif
 {
-  printf("Start AudioRecorder example\n");
+  printf("Start AudioOscillator example\n");
 
   /* First, initialize the shared memory and memory utility used by AudioSubSystem. */
 
@@ -450,7 +452,7 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
       return 1;
     }
 
-  /* Set recorder operation mode. */
+  /* Set oscillator operation mode. */
 
   if (!app_set_oscillator_status())
     {
@@ -466,7 +468,7 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
       return 1;
     }
 
-  /* Start recorder operation. */
+  /* Start oscillator operation. */
 
   if (!app_start_oscillator())
     {
@@ -476,15 +478,15 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
 
   /* Running... */
 
-  printf("Running time is %d sec\n", RECORDER_REC_TIME);
+  printf("Running time is %d sec\n", OSCILLATOR_REC_TIME);
 
-  app_recorde_process(RECORDER_REC_TIME);
+  app_recorde_process(OSCILLATOR_REC_TIME);
 
-  /* Stop recorder operation. */
+  /* Stop oscillator operation. */
 
   if (!app_stop_oscillator())
     {
-      printf("Error: app_stop_recorder() failure.\n");
+      printf("Error: app_stop_operation() failure.\n");
       return 1;
     }
 
@@ -516,7 +518,7 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
       return 1;
     }
 
-  printf("Exit AudioRecorder example\n");
+  printf("Exit AudioOscillator example\n");
 
   return 0;
 }
