@@ -1,7 +1,7 @@
 ############################################################################
-# modules/audio/objects/synthesizer/Make.defs
+# modules/audio/components/oscillator/Make.defs
 #
-#   Copyright 2019 Sony Semiconductor Solutions Corporation
+#   Copyright 2018 Sony Semiconductor Solutions Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -33,10 +33,10 @@
 #
 ############################################################################
 
-#ifeq ($(CONFIG_AUDIOUTILS_SYNTHESIZER),y)
+#ifeq ($(CONFIG_AUDIOUTILS_OSCILLATOR),y)
 
-CXXSRCS += synthesizer_obj.cpp
-VPATH   += objects/synthesizer
-DEPPATH += --dep-path objects/synthesizer
+CXXSRCS += oscillator_component.cpp
+VPATH   += components/oscillator
+DEPPATH += --dep-path components/oscillator
 
 #endif

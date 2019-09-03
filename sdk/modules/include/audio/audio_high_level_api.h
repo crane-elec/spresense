@@ -81,9 +81,6 @@
 #  include "audio/audio_renderer_api.h"
 #  include "audio/audio_capture_api.h"
 #endif
-#ifdef CONFIG_AUDIOUTILS_SYNTHESIZER
-#  include "audio/audio_synthesizer_api.h"
-#endif
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -476,6 +473,10 @@
 /*! \brief Audio SW object cannot available Error */
 
 #define AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR      0x3E
+
+/*! \brief Oscillator Library Initialize Error */
+
+#define AS_ECODE_OSCILLATOR_LIB_INITIALIZE_ERROR 0x3F
 
 /** @} */
 
@@ -1379,6 +1380,10 @@ typedef enum
   /*! \brief Postfilter Component ID */
 
   AS_MODULE_ID_POSTPROC_CMP,
+
+  /*! \brief Oscillator Component ID */
+
+  AS_MODULE_ID_OSCILLATOR_CMP,
 
   AS_MODULE_ID_NUM,
 } AsModuleId;
