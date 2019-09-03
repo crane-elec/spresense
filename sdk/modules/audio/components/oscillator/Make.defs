@@ -33,10 +33,10 @@
 #
 ############################################################################
 
-#ifeq ($(CONFIG_AUDIOUTILS_OSCILLATOR),y)
+ifeq ($(CONFIG_AUDIOUTILS_SYNTHESIZER),y)
 
 CXXSRCS += oscillator_component.cpp
 VPATH   += components/oscillator
 DEPPATH += --dep-path components/oscillator
 
-#endif
+endif

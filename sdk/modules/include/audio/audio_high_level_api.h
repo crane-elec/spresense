@@ -81,6 +81,12 @@
 #  include "audio/audio_renderer_api.h"
 #  include "audio/audio_capture_api.h"
 #endif
+#ifdef CONFIG_AUDIOUTILS_SYNTHESIZER
+#  include "audio/audio_player_api.h"
+#  include "audio/audio_synthesizer_api.h"
+#  include "audio/audio_outputmix_api.h"
+#  include "audio/audio_renderer_api.h"
+#endif
 
 #include <stdint.h>
 #include <stdbool.h>
