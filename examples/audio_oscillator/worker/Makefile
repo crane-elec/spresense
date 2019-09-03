@@ -47,6 +47,7 @@ LDLIBPATH += -L $(LIB_DIR)
 LDLIBPATH += -L "$(SDKDIR)/lib"
 
 LDLIBS += -lasmpw -lc
+LDLIBS += -larm_cortexM4lf_math
 
 WORKER_ELF = PREPROC
 

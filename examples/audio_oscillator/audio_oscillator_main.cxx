@@ -156,7 +156,7 @@ static void app_attention_callback(const ErrorAttentionParam *attparam)
 
 static bool app_create_audio_sub_system(void)
 {
-  bool result = false;
+  bool result = true;
 
   /* Create manager of AudioSubSystem. */
 
@@ -236,6 +236,19 @@ static bool app_set_ready(void)
   AudioResult result;
   AS_ReceiveAudioResult(&result);
   return printAudCmdResult(command.header.command_code, result);
+}
+
+static bool app_get_status(void)
+{
+  AudioCommand command;
+  command.header.packet_length = LENGTH_GETSTATUS;
+  command.header.command_code  = AUDCMD_GETSTATUS;
+  command.header.sub_code      = 0x00;
+  AS_SendAudioCommand(&command);
+
+  AudioResult result;
+  AS_ReceiveAudioResult(&result);
+  return result.notify_status.status_info;
 }
 
 static bool app_set_oscillator_status(void)
@@ -492,10 +505,13 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
 
   /* Return the state of AudioSubSystem before voice_call operation. */
 
-  if (!app_set_ready())
+  if (AS_MNG_STATUS_READY != app_get_status())
     {
-      printf("Error: app_set_ready() failure.\n");
-      return 1;
+      if (!app_set_ready())
+        {
+          printf("Error: app_set_ready() failure.\n");
+          return 1;
+        }
     }
 
   /* Change AudioSubsystem to PowerOff state. */

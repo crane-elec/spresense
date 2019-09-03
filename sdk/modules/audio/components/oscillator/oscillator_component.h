@@ -58,21 +58,21 @@ struct InitOscParam
 {
   WaveMode          type;
   uint8_t           channel_num;
-  AudioPcmBitWidth  bit_width;
+  AudioPcmBitWidth  bit_length;
   uint32_t          sampling_rate;
   OscCompCallback   callback;
 };
 
 struct ExecOscParam
 {
-  BufferHeader buffer;
-  uint8_t      channel_no;
+  BufferHeader      buffer;
+  uint8_t           channel_no;
 };
 
 struct SetOscParam
 {
-  uint8_t          channel_no;
-  uint32_t         frequency;
+  uint8_t           channel_no;
+  uint32_t          frequency;
 };
 
 struct OscCmpltParam
@@ -106,26 +106,44 @@ public:
   bool     set(const SetOscParam& param);
   bool     recv(void *p_param);
   bool     done(void)
-           {
-             if (!m_apu_cmd_mh_que.pop())
-             {
-               ENCODER_ERR(AS_ATTENTION_SUB_CODE_MEMHANDLE_FREE_ERROR);
-               return false;
-              }
-             return true;
-           };
+  {
+    if (!m_apu_cmd_mh_que.pop())
+      {
+        OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_MEMHANDLE_FREE_ERROR);
+        return false;
+      }
+    return true;
+  }
+  void    *getApuCmdBuf()
+  {
+    MemMgrLite::MemHandle mh;
+
+    if (mh.allocSeg(m_apu_pool_id, sizeof(Apu::Wien2ApuCmd)) != ERR_OK)
+      {
+        OSCILLATOR_CMP_WARN(AS_ATTENTION_SUB_CODE_MEMHANDLE_ALLOC_ERROR);
+        return NULL;
+      }
+
+    if (!m_apu_cmd_mh_que.push(mh))
+      {
+        OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_QUEUE_PUSH_ERROR);
+        return NULL;
+      }
+
+    return mh.getPa();
+  }
+  MsgQueId get_apu_mid(void) { return m_apu_dtq; };
 
 private:
   typedef s_std::Queue<MemMgrLite::MemHandle, APU_COMMAND_QUEUE_SIZE> ApuCmdMhQue;
-  ApuCmdMhQue m_apu_cmd_mh_que;
 
-  MsgQueId m_apu_dtq;
-  PoolId m_apu_pool_id;
-
-  void send_apu(Apu::Wien2ApuCmd*);
+  ApuCmdMhQue     m_apu_cmd_mh_que;
+  MsgQueId        m_apu_dtq;
+  PoolId          m_apu_pool_id;
   OscCompCallback m_callback;
+  void           *m_dsp_handler;
 
-  void *m_dsp_handler;
+  void  send_apu(Apu::Wien2ApuCmd*);
 };
 
 __WIEN2_END_NAMESPACE
