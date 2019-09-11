@@ -131,25 +131,19 @@ config AUDIOUTILS_VOICE_COMMAND
 	---help---
 		Support Voice Command Feature
 
-config AUDIOUTILS_
-	bool "Voice Command"
-	depends on CXD56_I2S0
+config AUDIOUTILS_SYNTHESIZER
+	bool "Audio Synthesizer"
 	default n
-	select AUDIOUTILS_MFE
-	select AUDIOUTILS_MPP
 	select AUDIOUTILS_MANAGER
 	select MEMUTILS_MEMORY_MANAGER
 	select MEMUTILS_MESSAGE
 	select MEMUTILS_S_STL
 	select MEMUTILS_SIMPLE_FIFO
+	select AUDIOUTILS_POSTPROC
 	select AUDIOUTILS_RENDERER
-	select AUDIOUTILS_FILTER
-	select AUDIOUTILS_CAPTURE
-	select AUDIOUTILS_RECOGNITION
 	select AUDIOUTILS_DSP_DRIVER
-	select AUDIOUTILS_SOUND_EFFECTOR
 	---help---
-		Support Voice Command Feature
+		Support Synthesizer Feature
 
 if AUDIOUTILS_RECORDER
 
@@ -235,9 +229,6 @@ config AUDIOUTILS_DSP_DRIVER
 	bool
 
 config AUDIOUTILS_SOUND_EFFECTOR
-	bool
-
-config AUDIOUTILS_SYNTHESIZER
 	bool
 
 endmenu # Audio Utilities

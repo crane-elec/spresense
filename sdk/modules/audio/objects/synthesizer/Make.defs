@@ -33,10 +33,10 @@
 #
 ############################################################################
 
-#ifeq ($(CONFIG_AUDIOUTILS_SYNTHESIZER),y)
+ifeq ($(CONFIG_AUDIOUTILS_SYNTHESIZER),y)
 
 CXXSRCS += synthesizer_obj.cpp
 VPATH   += objects/synthesizer
 DEPPATH += --dep-path objects/synthesizer
 
-#endif
+endif

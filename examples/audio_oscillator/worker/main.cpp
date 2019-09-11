@@ -71,8 +71,7 @@ static void reply_to_spu(void *addr)
 
   /* Create message ID */
 
-  msg_id = CRE_MSGID(Wien2::Apu::DecMode, COMMAND_DATATYPE_ADDRESS);
-  //msg_id = CRE_MSGID(Wien2::Apu::OscMode, COMMAND_DATATYPE_ADDRESS);
+  msg_id = CRE_MSGID(Wien2::Apu::OscMode, COMMAND_DATATYPE_ADDRESS);
 
   /* Message data is address of APU command */
 

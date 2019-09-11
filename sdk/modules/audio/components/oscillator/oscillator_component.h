@@ -52,21 +52,9 @@ __WIEN2_BEGIN_NAMESPACE
 
 typedef uint32_t OscllicatorComponentHandler;
 
-typedef bool (*OscCompCallback)(void*);
-
-struct InitOscParam
-{
-  WaveMode          type;
-  uint8_t           channel_num;
-  AudioPcmBitWidth  bit_length;
-  uint32_t          sampling_rate;
-  OscCompCallback   callback;
-};
-
 struct ExecOscParam
 {
   BufferHeader      buffer;
-  uint8_t           channel_no;
 };
 
 struct SetOscParam
@@ -77,28 +65,40 @@ struct SetOscParam
 
 struct OscCmpltParam
 {
-  Apu::ApuEventType event_type;
-  bool              result;
+  uint32_t event_type;
+  bool     result;
 
   union
   {
-    InitOscParam init_osc_param;
     ExecOscParam exec_osc_param;
     SetOscParam  set_osc_param;
   };
 };
 
+typedef bool (*OscCompCallback)(OscCmpltParam*, void*);
+
+struct InitOscParam
+{
+  WaveMode          type;
+  uint8_t           channel_num;
+  AudioPcmBitWidth  bit_length;
+  uint32_t          sampling_rate;
+  OscCompCallback   callback;
+  void             *instance;
+};
+
 class OscillatorComponent : public ComponentCommon<Apu::InternalResult>
 {
 public:
-  OscillatorComponent(MsgQueId apu_dtq,PoolId apu_pool_id)
+  OscillatorComponent(MsgQueId apu_dtq, PoolId apu_pool_id)
   {
-    m_apu_dtq = apu_dtq;
+    m_callback    = NULL;
+    m_apu_dtq     = apu_dtq;
     m_apu_pool_id = apu_pool_id;
   }
   ~OscillatorComponent() {}
 
-  uint32_t activate(const char *path, uint32_t *dsp_inf);
+  uint32_t activate(MsgQueId apu_dtq, PoolId apu_pool_id, const char *path, uint32_t *dsp_inf);
   bool     deactivate();
   uint32_t init(const InitOscParam& param, uint32_t *dsp_inf);
   bool     exec(const ExecOscParam& param);
@@ -141,6 +141,7 @@ private:
   MsgQueId        m_apu_dtq;
   PoolId          m_apu_pool_id;
   OscCompCallback m_callback;
+  void           *m_instance;
   void           *m_dsp_handler;
 
   void  send_apu(Apu::Wien2ApuCmd*);

@@ -377,6 +377,9 @@
                                         AS_MODULE_ID_RECOGNITION_OBJ, \
                                         fmt, \
                                         ##__VA_ARGS__)
+#define SYNTHESIZER_REG_ATTCB(att_cb) ATTENTION_CB_REGISTER( \
+                                        AS_MODULE_ID_SYNTHESIZER_OBJ, \
+                                        att_cb)
 #define SYNTHESIZER_OBJ_ERR(code)     DBG_LOGF_ERROR( \
                                         AS_MODULE_ID_SYNTHESIZER_OBJ, \
                                         0, \

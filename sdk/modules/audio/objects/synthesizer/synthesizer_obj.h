@@ -55,55 +55,89 @@ __WIEN2_BEGIN_NAMESPACE
  * Pre-processor Definitions
  ****************************************************************************/
 
+#define  MAX_OUT_BUFF_NUM  4  /* Number of PCM buffer. */
+
+typedef s_std::Queue<MemMgrLite::MemHandle, MAX_OUT_BUFF_NUM + 1> PcmMhQueue;
+
 /****************************************************************************
  * Public Types
  ****************************************************************************/
 
-class SynthesizerObject {
+class SynthesizerObject
+{
 public:
-  static void create(AsSynthesizerMsgQueId_t msgq_id,
-                     AsSynthesizerPoolId_t   pool_id);
+  static SynthesizerObject *create(AsSynthesizerMsgQueId_t msgq_id,
+                                   AsSynthesizerPoolId_t   pool_id);
+
+  static SynthesizerObject *get_instance(void)
+  {
+    static SynthesizerObject  sng_ogj;
+
+    return &sng_ogj;
+  }
+
+  static pid_t get_pid(void)
+  {
+    return get_instance()->m_syn_pid;
+  }
+
+  static void set_pid(pid_t id)
+  {
+    get_instance()->m_syn_pid = id;
+  }
+
+  void run(void);
+
+  err_t send(MsgType type, const SynthesizerCommand& param)
+  {
+    return MsgLib::send<SynthesizerCommand>(m_msgq_id.synthesizer,
+                                            MsgPriNormal,
+                                            type,
+                                            NULL,
+                                            param);
+  }
 
 private:
-  SynthesizerObject(AsSynthesizerMsgQueId_t msgq_id,
-                    AsSynthesizerPoolId_t   pool_id)
-    : m_msgq_id(msgq_id)
-    , m_pool_id(pool_id)
-    , m_state(AS_MODULE_ID_SYNTHESIZER_OBJ, "", SynthsizerStateInactive)
-    , m_callback(NULL)
-  {}
+  SynthesizerObject(void)
+    : m_state(AS_MODULE_ID_SYNTHESIZER_OBJ, "", SynthsizerStateBooted)
+    , m_bit_length(AS_BITLENGTH_16)
+    , m_oscillator(0, NullPoolId)
+  {
+    memset(m_dsp_path, 0, AS_AUDIO_DSP_PATH_LEN);
+  }
 
   enum SynthesizerState_e
   {
-    SynthsizerStateInactive = 0,
+    SynthsizerStateBooted = 0,
     SynthsizerStateReady,
-    SynthsizerStateExecute,
+    SynthsizerStatePreActive,
+    SynthsizerStateActive,
     SynthsizerStateStopping,
     SynthsizerStateErrorStopping,
     SynthsizerStateWaitStop,
     SynthsizerStateNum
   };
 
-  AsSynthesizerMsgQueId_t m_msgq_id;
-  AsSynthesizerPoolId_t   m_pool_id;
-
+  AsSynthesizerMsgQueId_t        m_msgq_id;
+  AsSynthesizerPoolId_t          m_pool_id;
+  pid_t                          m_syn_pid;
   AudioState<SynthesizerState_e> m_state;
-
-  OscllicatorComponentHandler m_osc_hdlr;
-
-  SynthesizerCallback m_callback;
+  OscllicatorComponentHandler    m_osc_hdlr;
+  SynthesizerCallback            m_callback;
+  PcmMhQueue                     m_pcm_buf_mh_que;
+  uint8_t                        m_bit_length;
+  char                           m_dsp_path[AS_AUDIO_DSP_PATH_LEN];
 
   typedef void (SynthesizerObject::*MsgProc)(MsgPacket*);
 
   static  MsgProc MsgProcTbl[AUD_SYN_MSG_NUM][SynthsizerStateNum];
   static  MsgProc MsgResultTbl[AUD_SYN_RST_MSG_NUM][SynthsizerStateNum];
 
-  void run();
-  void parse(MsgPacket *);
-
   void reply(AsSynthesizerEvent evtype,
              MsgType            msg_type,
              uint32_t           result);
+
+  void parse(MsgPacket *);
 
   void illegalEvt(MsgPacket *);
   void activate(MsgPacket *);
@@ -115,15 +149,23 @@ private:
   void stopOnWait(MsgPacket *);
   void set(MsgPacket *);
 
-  void illegalSinkDone(MsgPacket *);
   void illegalCompDone(MsgPacket *);
 
   void nextReqOnExec(MsgPacket *msg);
   void nextReqOnStopping(MsgPacket *msg);
   void cmpDoneOnExec(MsgPacket *msg);
   void cmpDoneOnStopping(MsgPacket *msg);
+  void cmpDoneOnSet(MsgPacket *msg);
 
   bool checkAndSetMemPool();
+
+  void sendPcmToOwner(AsPcmDataParam& data);
+
+  /* Components */
+
+  OscillatorComponent m_oscillator;
+
+  void oscillator_exec(void);
 };
 
 /****************************************************************************

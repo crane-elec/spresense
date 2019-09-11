@@ -54,13 +54,13 @@ uint8_t pool_num[NUM_MEM_SECTIONS] = {
 extern const PoolSectionAttr MemoryPoolLayouts[NUM_MEM_SECTIONS][NUM_MEM_LAYOUTS][7] = {
   {  /* Section:0 */
     {/* Layout:0 */
-     /* pool_ID                          type         seg  fence  addr        size         */
-      { S0_REND_PCM_BUF_POOL           , BasicType  ,   5,  true, 0x000c0008, 0x00015f90 },  /* AUDIO_WORK_AREA */
-      { S0_OSC_APU_CMD_POOL            , BasicType  ,   5,  true, 0x000d5fa0, 0x000001cc },  /* AUDIO_WORK_AREA */
-      { S0_PF0_PCM_BUF_POOL            , BasicType  ,   1,  true, 0x000d6178, 0x00004650 },  /* AUDIO_WORK_AREA */
-      { S0_PF1_PCM_BUF_POOL            , BasicType  ,   1,  true, 0x000da7d0, 0x00004650 },  /* AUDIO_WORK_AREA */
-      { S0_PF0_APU_CMD_POOL            , BasicType  ,   3,  true, 0x000dee28, 0x00000114 },  /* AUDIO_WORK_AREA */
-      { S0_PF1_APU_CMD_POOL            , BasicType  ,   3,  true, 0x000def48, 0x00000114 },  /* AUDIO_WORK_AREA */
+     /* pool_ID          type       seg fence  addr        size         */
+      { S0_REND_PCM_BUF_POOL           , BasicType,   5, true, 0x000c0008, 0x00005000 },  /* AUDIO_WORK_AREA */
+      { S0_OSC_APU_CMD_POOL            , BasicType,   5, true, 0x000c5010, 0x000001cc },  /* AUDIO_WORK_AREA */
+      { S0_PF0_PCM_BUF_POOL            , BasicType,   1, true, 0x000c51e8, 0x00001000 },  /* AUDIO_WORK_AREA */
+      { S0_PF1_PCM_BUF_POOL            , BasicType,   1, true, 0x000c61f0, 0x00001000 },  /* AUDIO_WORK_AREA */
+      { S0_PF0_APU_CMD_POOL            , BasicType,   3, true, 0x000c71f8, 0x00000114 },  /* AUDIO_WORK_AREA */
+      { S0_PF1_APU_CMD_POOL            , BasicType,   3, true, 0x000c7318, 0x00000114 },  /* AUDIO_WORK_AREA */
       { S0_NULL_POOL, 0, 0, false, 0, 0 },
     },
   },

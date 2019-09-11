@@ -38,7 +38,6 @@
 
 #include "oscillator_component.h"
 #include "apus/cpuif_cmd.h"
-
 #include "memutils/message/Message.h"
 #include "memutils/message/MsgPacket.h"
 #include "audio/audio_message_types.h"
@@ -61,43 +60,51 @@ void osc_dsp_done_callback(void *p_response, void *p_instance)
   switch (p_param->process_mode)
     {
       case Apu::CommonMode:
-          if (p_param->event_type == Apu::BootEvent)
-            {
-              err_t er = MsgLib::send<uint32_t>(p_inst->get_apu_mid(),
-                                                MsgPriNormal,
-                                                MSG_ISR_APU0,
-                                                0,
-                                                p_param->data.value);
-              F_ASSERT(er == ERR_OK);
-            }
-          else if (p_param->event_type == Apu::ErrorEvent)
-            {
-              OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_DSP_ASSETION_FAIL);
-            }
-          break;
+        if (p_param->event_type == Apu::BootEvent)
+          {
+            err_t er = MsgLib::send<uint32_t>(p_inst->get_apu_mid(),
+                                              MsgPriNormal,
+                                              MSG_ISR_APU0,
+                                              0,
+                                              p_param->data.value);
+            F_ASSERT(er == ERR_OK);
+          }
+        else if (p_param->event_type == Apu::ErrorEvent)
+          {
+            OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_DSP_ASSETION_FAIL);
+          }
+        break;
 
-      case Apu::EncMode:
-          p_inst->recv(p_response);
-          break;
+      case Apu::OscMode:
+        p_inst->recv(p_response);
+        break;
 
       default:
-          OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
-          break;
+        OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
+        break;
     }
 }
 
 /*--------------------------------------------------------------------
     Class Methods
   --------------------------------------------------------------------*/
-uint32_t OscillatorComponent::activate(const char *path,
-                                       uint32_t *dsp_inf)
+
+/*--------------------------------------------------------------------*/
+uint32_t OscillatorComponent::activate(MsgQueId    apu_dtq,
+                                       PoolId      apu_pool_id,
+                                       const char *path,
+                                       uint32_t   *dsp_inf)
 {
-  char filepath[64];
   uint32_t osc_dsp_version = 0;
+
+  /* Setting id */
+
+  m_apu_dtq     = apu_dtq;
+  m_apu_pool_id = apu_pool_id;
 
   /* Load DSP binary */
 
-  int ret = DD_Load(filepath, 
+  int ret = DD_Load(path,
                     osc_dsp_done_callback, 
                     (void *)this, 
                     &m_dsp_handler);
@@ -154,6 +161,7 @@ uint32_t OscillatorComponent::init(const InitOscParam& param, uint32_t *dsp_inf)
                      param.channel_num, param.complexity, param.bit_rate, param.callback);
 
   m_callback = param.callback;
+  m_instance = param.instance;
 
   Apu::Wien2ApuCmd* p_apu_cmd = static_cast<Apu::Wien2ApuCmd*>(getApuCmdBuf());
 
@@ -183,6 +191,10 @@ uint32_t OscillatorComponent::init(const InitOscParam& param, uint32_t *dsp_inf)
   uint32_t rst = dsp_init_check(m_apu_dtq, &internal_result);
   *dsp_inf = internal_result.value;
 
+  /* Free message que */
+
+  done();
+
   return rst;
 }
 
@@ -191,10 +203,11 @@ bool OscillatorComponent::exec(const ExecOscParam& param)
 {
   /* Data check */
 
-  if (param.buffer.p_buffer == NULL) {
-     OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
-     return false;
-  }
+  if (param.buffer.p_buffer == NULL)
+    {
+       OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_UNEXPECTED_PARAM);
+       return false;
+    }
 
   Apu::Wien2ApuCmd* p_apu_cmd = static_cast<Apu::Wien2ApuCmd*>(getApuCmdBuf());
 
@@ -208,8 +221,7 @@ bool OscillatorComponent::exec(const ExecOscParam& param)
   p_apu_cmd->header.process_mode = Apu::OscMode;
   p_apu_cmd->header.event_type   = Apu::ExecEvent;
 
-  p_apu_cmd->exec_osc_cmd.channel_no = param.channel_no;
-  p_apu_cmd->exec_osc_cmd.buffer     = param.buffer;
+  p_apu_cmd->exec_osc_cmd.buffer = param.buffer;
 
   send_apu(p_apu_cmd);
 
@@ -219,10 +231,10 @@ bool OscillatorComponent::exec(const ExecOscParam& param)
 /*--------------------------------------------------------------------*/
 bool OscillatorComponent::set(const SetOscParam& param)
 {
-
   /* You should check date */
 
   Apu::Wien2ApuCmd* p_apu_cmd = static_cast<Apu::Wien2ApuCmd*>(getApuCmdBuf());
+
   if (p_apu_cmd == NULL)
     {
       return false;
@@ -270,8 +282,9 @@ bool OscillatorComponent::flush()
 /*--------------------------------------------------------------------*/
 bool OscillatorComponent::recv(void *p_response)
 {
-  DspDrvComPrm_t *p_param = (DspDrvComPrm_t *)p_response;
-  Apu::Wien2ApuCmd *packet = static_cast<Apu::Wien2ApuCmd*>(p_param->data.pParam);
+  DspDrvComPrm_t   *p_param = (DspDrvComPrm_t *)p_response;
+  Apu::Wien2ApuCmd *packet  = static_cast<Apu::Wien2ApuCmd*>(p_param->data.pParam);
+  OscCmpltParam     comple;
 
   if (Apu::ApuExecOK != packet->result.exec_result)
     {
@@ -287,20 +300,37 @@ bool OscillatorComponent::recv(void *p_response)
 
       return true;
     }
+  else if (Apu::ExecEvent == packet->header.event_type)
+    {
+      comple.exec_osc_param = *(ExecOscParam *)packet;
+    }
+  else if (Apu::SetParamEvent == packet->header.event_type)
+    {
+      comple.set_osc_param = *(SetOscParam *)packet;
+    }
 
-  return m_callback(p_param);
+  comple.event_type = packet->header.event_type;
+  comple.result     = packet->result.exec_result;
+
+  /* Free message que */
+
+  done();
+
+  return m_callback(&comple, m_instance);
 }
 
 /*--------------------------------------------------------------------*/
 void OscillatorComponent::send_apu(Apu::Wien2ApuCmd* p_cmd)
 {
   DspDrvComPrm_t com_param;
-  com_param.event_type = p_cmd->header.event_type;
+
+  com_param.event_type   = p_cmd->header.event_type;
   com_param.process_mode = p_cmd->header.process_mode;
-  com_param.type = DSP_COM_DATA_TYPE_STRUCT_ADDRESS;
-  com_param.data.pParam = reinterpret_cast<void*>(p_cmd);
+  com_param.type         = DSP_COM_DATA_TYPE_STRUCT_ADDRESS;
+  com_param.data.pParam  = reinterpret_cast<void*>(p_cmd);
 
   int ret = DD_SendCommand(m_dsp_handler, &com_param);
+
   if (ret != DSPDRV_NOERROR)
     {
       logerr("DD_SendCommand() failure. %d\n", ret);

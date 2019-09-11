@@ -118,6 +118,20 @@ typedef enum
 
 } AsSynthesizerEvent;
 
+/** Waveform of Synthesizer */
+
+typedef enum
+{
+  InvalidWave          = 0xffffffff,
+
+  /*! \brief Waveform */
+
+  AsSynthesizerSinWave = 0,
+
+  AsSynthesizerWaveModeNum
+
+} AsSynthesizerWaveMode;
+
 /* SetSynthesizerStatus */
 
 /* InitSynthesizer */
@@ -143,23 +157,61 @@ typedef struct
 
 typedef struct
 {
-  uint32_t type;
-  uint8_t  channel_no;
-  uint32_t frequency;
-  uint8_t  bit_width;
+  /*! \brief [in] Waveform type */
+
+  AsSynthesizerWaveMode type;
+
+  /*! \brief [in] Number of channels */
+
+  uint8_t               channel_num;
+
+  /*! \brief [in] Sound frequency */
+
+  uint32_t              sampling_rate;
+
+  /*! \brief [in] Bit depth */
+
+  uint8_t               bit_width;
+
+  /*! \brief [in] Audio DSP path */
 
   char dsp_path[AS_AUDIO_DSP_PATH_LEN];
 
 } AsInitSynthesizerParam;
 
+typedef struct
+{
+  bool  is_end;
+
+} AsCompleteSynthesizer;
+
+typedef struct
+{
+  /*! \brief [in] Channel number */
+
+  uint8_t               channel_no;
+
+  /*! \brief [in] Sound frequency */
+
+  uint32_t              frequency;
+
+} AsSetSynthesizer;
+
 /** SynthesizerCommand definition */
+
 typedef union
 {
+  /*! \brief [in] for AsExecSynthesizer
+   * (Object Interface==AsExecSynthesizer)
+   */
+ 
+  AsCompleteSynthesizer  comp_param;
+
   /*! \brief [in] for ActivateSynthesizer
    * (Object Interface==AS_ActivateMediaSynthesizer)
    */
  
-  AsActivateSynthesizer act_param;
+  AsActivateSynthesizer  act_param;
 
 
   /*! \brief [in] for InitSynthesizer
@@ -172,12 +224,22 @@ typedef union
    * (Object Interface==AS_SetMicGainMediaSynthesizer)
    */
 
+  /*! \brief [in] for SetSynthesizer
+   * (Object Interface==AS_SetMediaSynthesizer)
+   */
+
+  AsSetSynthesizer       set_param;
+
 } SynthesizerCommand;
 
 /** Message queue ID parameter of activate function */
 
 typedef struct
 {
+  /*! \brief [in] Message queue id of output mixer */
+
+  uint8_t mixer;
+
   /*! \brief [in] Message queue id of synthesizer */
 
   uint8_t synthesizer;
@@ -189,6 +251,7 @@ typedef struct
   /*! \brief [in] Message queue id of DSP */
 
   uint8_t dsp;
+
 } AsSynthesizerMsgQueId_t;
 
 /** Pool ID parameter of activate function */
@@ -197,15 +260,16 @@ typedef struct
 {
   /*! \brief [in] Memory pool id of input data */
 
-  uint8_t input;
+  MemMgrLite::PoolId input;
 
   /*! \brief [in] Memory pool id of output data */
 
-  uint8_t output;
+  MemMgrLite::PoolId output;
 
   /*! \brief [in] Memory pool id of dsp command data */
 
-  uint8_t dsp;
+  MemMgrLite::PoolId dsp;
+
 } AsSynthesizerPoolId_t;
 
 /** Activate function parameter */
@@ -219,6 +283,7 @@ typedef struct
   /*! \brief [in] ID of memory pool for processing data */
 
   AsSynthesizerPoolId_t   pool_id;
+
 } AsCreateSynthesizerParam_t;
 
 /****************************************************************************
@@ -244,13 +309,13 @@ typedef struct
  */
 
 bool AS_CreateMediaSynthesizer(FAR AsCreateSynthesizerParam_t *param,
-                            AudioAttentionCb attcb);
+                                   AudioAttentionCb            attcb);
 
 __attribute__((deprecated(
                  "\n \
                   \n Deprecated create API is used. \
                   \n Use \"AS_CreateMediaSynthesizer(AsCreateSynthesizerParam_t, \
-                  \n                             AudioAttentionCb)\". \
+                  \n                                 AudioAttentionCb)\". \
                   \n \
                   \n")))
 bool AS_CreateMediaSynthesizer(FAR AsCreateSynthesizerParam_t *param);
@@ -294,6 +359,15 @@ bool AS_StartMediaSynthesizer(void);
  */
 
 bool AS_StopMediaSynthesizer(void);
+
+/**
+ * @brief Set audio synthesizer
+ *
+ * @retval     true  : success
+ * @retval     false : failure
+ */
+
+bool AS_SetMediaSynthesizer(FAR AsSetSynthesizer *set_param);
 
 /**
  * @brief Deactivate audio synthesizer
