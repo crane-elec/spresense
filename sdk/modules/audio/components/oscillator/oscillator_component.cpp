@@ -95,6 +95,8 @@ uint32_t OscillatorComponent::activate(MsgQueId    apu_dtq,
                                        const char *path,
                                        uint32_t   *dsp_inf)
 {
+  printf("activate\n");
+
   uint32_t osc_dsp_version = 0;
 
   /* Setting id */
@@ -138,6 +140,8 @@ uint32_t OscillatorComponent::activate(MsgQueId    apu_dtq,
 /*--------------------------------------------------------------------*/
 bool OscillatorComponent::deactivate(void)
 {
+  printf("deactivate\n");
+
   OSCILLATOR_CMP_DBG("DEACT:\n");
 
   int ret = DD_Unload(m_dsp_handler);
@@ -159,6 +163,8 @@ uint32_t OscillatorComponent::init(const InitOscParam& param, uint32_t *dsp_inf)
   OSCILLATOR_CMP_DBG("INIT: codec %d, infs %d, outfs %d, bit len %d, ch num %d, complexity %d, bit rate %d, cb %08x\n",
                      param.codec_type, param.input_sampling_rate, param.output_sampling_rate, param.bit_length,
                      param.channel_num, param.complexity, param.bit_rate, param.callback);
+
+  printf("init\n");
 
   m_callback = param.callback;
   m_instance = param.instance;
@@ -222,6 +228,8 @@ bool OscillatorComponent::exec(const ExecOscParam& param)
   p_apu_cmd->header.event_type   = Apu::ExecEvent;
 
   p_apu_cmd->exec_osc_cmd.buffer = param.buffer;
+  p_apu_cmd->exec_osc_cmd.cp     = param.cp;
+  p_apu_cmd->exec_osc_cmd.size   = param.size;
 
   send_apu(p_apu_cmd);
 

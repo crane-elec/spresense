@@ -54,7 +54,10 @@ typedef uint32_t OscllicatorComponentHandler;
 
 struct ExecOscParam
 {
-  BufferHeader      buffer;
+  BufferHeader  buffer;
+  uint8_t       channel_no;     /**< Channel number of data */ /* 変更したいチャンネル番号 */
+  void*         cp;
+  uint32_t      size;
 };
 
 struct SetOscParam
