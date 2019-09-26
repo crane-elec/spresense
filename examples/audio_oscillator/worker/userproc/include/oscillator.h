@@ -43,7 +43,7 @@
 #include "../../arm-none-eabi/include/math.h"
 #include "arm_math.h"
 
-#define MAX_CHANNEL_NUMBER 4
+#define MAX_CHANNEL_NUMBER 6
 
 class Oscillator
 {

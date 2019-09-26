@@ -431,6 +431,8 @@ void SynthesizerObject::deactivate(MsgPacket *msg)
       result = AS_ECODE_DSP_UNLOAD_ERROR;
     }
 
+  memset(m_dsp_path, 0, sizeof(m_dsp_path));
+
   reply(AsSynthesizerEventDeact, msg->getType(), result);
 
   m_state = SynthsizerStateBooted;
@@ -451,12 +453,18 @@ void SynthesizerObject::init(MsgPacket *msg)
 
   if (strcmp(m_dsp_path, param.dsp_path) != 0)
     {
+      if (m_dsp_path[0] != '\0')
+        {
+          m_oscillator.deactivate();
+        }
+
       result = m_oscillator.activate(m_msgq_id.dsp, m_pool_id.dsp, param.dsp_path, &dsp_inf);
-      strcpy(m_dsp_path, param.dsp_path);
     }
 
   if (result == AS_ECODE_OK)
     {
+      strcpy(m_dsp_path, param.dsp_path);
+
       InitOscParam  osc_init;
 
       /* Waveform setting */

@@ -100,10 +100,29 @@ void Oscillator::exec(Wien2::Apu::Wien2ApuCmd *cmd)
 
   q15_t* ptr = (q15_t*)cmd->exec_osc_cmd.buffer.p_buffer;
 
-  for(int i = 0;i<m_channel_num;i++){
-    for(uint32_t j = 0;j<cmd->exec_osc_cmd.buffer.size / 4;j++){ /* サンプルに変える必要ある？*/
-      *ptr++ = arm_sin_q15 (m_theta[i]);
-      (m_theta[i] + m_omega[i]) < 0x7fff ? m_theta[i] = (m_theta[i] + m_omega[i]) :  m_theta[i] = (m_theta[i] + m_omega[i] - 0x7fff);
+  /* Byte size per sample.
+   * If ch num is 1, but need to extend mono data to L and R ch.
+   */
+
+  uint32_t sample_byte = ((m_channel_num < 2) ? 2 : m_channel_num) * 2;
+
+  for (uint32_t j = 0; j < cmd->exec_osc_cmd.buffer.size / sample_byte; j++) { /* サンプルに変える必要ある？*/
+    for (int i = 0; i < m_channel_num; i++) {
+      /* Calc sin */
+
+      q15_t val = arm_sin_q15(m_theta[i]);
+
+      *ptr++ = val;
+
+      /* When ch num is 1, Extend L1 -> L1L1 */
+
+      if (m_channel_num < 2) {
+        *ptr++ = val;
+      }
+
+      /* Update theta */
+
+      m_theta[i] = (m_theta[i] + m_omega[i]) & 0x7fff;
     }
   }
 
