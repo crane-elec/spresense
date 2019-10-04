@@ -77,16 +77,16 @@ void Oscillator::init(Wien2::Apu::Wien2ApuCmd *cmd)
   /* データチェック */
 
 
-	for(int i = 0;i<cmd->init_osc_cmd.channel_num;i++){
-		m_frequency[i] = -1;
-		m_theta[i] = 0;
-		m_omega[i] = 0;
-	}
+  for(int i = 0;i<cmd->init_osc_cmd.channel_num;i++){
+    m_frequency[i] = -1;
+    m_theta[i] = 0;
+    m_omega[i] = 0;
+  }
 
-	m_type = cmd->init_osc_cmd.type;
-	m_channel_num = cmd->init_osc_cmd.channel_num;
-	m_bit_length = cmd->init_osc_cmd.bit_length;
-	m_sampling_rate = cmd->init_osc_cmd.sampling_rate;
+  m_type = cmd->init_osc_cmd.type;
+  m_channel_num = cmd->init_osc_cmd.channel_num;
+  m_bit_length = cmd->init_osc_cmd.bit_length;
+  m_sampling_rate = cmd->init_osc_cmd.sampling_rate;
 
   m_state = Ready;
 
@@ -98,13 +98,33 @@ void Oscillator::exec(Wien2::Apu::Wien2ApuCmd *cmd)
 {
   /* Execute process to input audio data. */
 
-	for(int i = 0;i<m_channel_num;i++){
-		q15_t* ptr = (q15_t*)cmd->exec_osc_cmd.buffer.p_buffer + i;
-		for(uint32_t j = 0;j<cmd->exec_osc_cmd.buffer.size;j++){ /* サンプルに変える必要ある？*/
-		  *ptr = arm_sin_q15 (m_theta[i]);
-			(m_theta[i] + m_omega[i]) < 1 ? m_theta[i] = (m_theta[i] + m_omega[i]) :  m_theta[i] = (m_theta[i] + m_omega[i] -1);
-		}
-	}
+  q15_t* ptr = (q15_t*)cmd->exec_osc_cmd.buffer.p_buffer;
+
+  /* Byte size per sample.
+   * If ch num is 1, but need to extend mono data to L and R ch.
+   */
+
+  uint32_t sample_byte = ((m_channel_num < 2) ? 2 : m_channel_num) * 2;
+
+  for (uint32_t j = 0; j < cmd->exec_osc_cmd.buffer.size / sample_byte; j++) { /* サンプルに変える必要ある？*/
+    for (int i = 0; i < m_channel_num; i++) {
+      /* Calc sin */
+
+      q15_t val = arm_sin_q15(m_theta[i]);
+
+      *ptr++ = val;
+
+      /* When ch num is 1, Extend L1 -> L1L1 */
+
+      if (m_channel_num < 2) {
+        *ptr++ = val;
+      }
+
+      /* Update theta */
+
+      m_theta[i] = (m_theta[i] + m_omega[i]) & 0x7fff;
+    }
+  }
 
   m_state = Active;
 
@@ -125,8 +145,8 @@ void Oscillator::flush(Wien2::Apu::Wien2ApuCmd *cmd)
 void Oscillator::set(Wien2::Apu::Wien2ApuCmd *cmd)
 {
   /* Set process parameters. */
-	m_omega[cmd->setparam_osc_cmd.channel_no] = cmd->setparam_osc_cmd.frequency * 0x7fffffff / m_sampling_rate;
-	
+  m_omega[cmd->setparam_osc_cmd.channel_no] = cmd->setparam_osc_cmd.frequency * 0x7fff / m_sampling_rate;
+  
   cmd->result.exec_result = Wien2::Apu::ApuExecOK;
 }
 

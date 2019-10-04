@@ -140,11 +140,11 @@ bool OscillatorComponent::deactivate(void)
 {
   OSCILLATOR_CMP_DBG("DEACT:\n");
 
-  int ret = DD_Unload(m_dsp_handler);
+  int ret = DD_force_Unload(m_dsp_handler);
 
   if (ret != DSPDRV_NOERROR)
     {
-      logerr("DD_UnLoad() failure. %d\n", ret);
+      logerr("DD_force_Unload() failure. %d\n", ret);
       OSCILLATOR_CMP_ERR(AS_ATTENTION_SUB_CODE_DSP_UNLOAD_ERROR);
       return false;
     }
