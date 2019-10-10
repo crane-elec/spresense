@@ -70,7 +70,7 @@ static bool osc_done_callback(OscCmpltParam *param, void *instance)
   SynthesizerObject *obj = (SynthesizerObject *)instance;
 
   SynthesizerCommand cmd;
-  MsgType             type = MSG_AUD_SYN_CMD_NEXT_REQ;
+  MsgType            type = MSG_AUD_SYN_CMD_NEXT_REQ;
 
   if (param->event_type == Apu::FlushEvent)
     {
@@ -335,7 +335,7 @@ void SynthesizerObject::reply(AsSynthesizerEvent evtype, MsgType msg_type, uint3
 {
   if (m_callback != NULL)
     {
-      m_callback(evtype, result, 0);
+      m_callback(evtype, result, m_param);
     }
   else if (m_msgq_id.mng != MSG_QUE_NULL)
     {
@@ -384,6 +384,23 @@ void SynthesizerObject::stopOnExec(MsgPacket *msg)
 {
   msg->moveParam<SynthesizerCommand>();
 
+  MemHandle     mh;
+
+  uint32_t  max_pcm_buff_size =
+    (Manager::getPoolSize(m_pool_id.output)) / (Manager::getPoolNumSegs(m_pool_id.output));
+
+  if (mh.allocSeg(m_pool_id.output, max_pcm_buff_size) != ERR_OK)
+    {
+      SYNTHESIZER_OBJ_ERR(AS_ATTENTION_SUB_CODE_MEMHANDLE_ALLOC_ERROR);
+      return;
+    }
+
+  if (!m_pcm_buf_mh_que.push(mh))
+    {
+      SYNTHESIZER_OBJ_ERR(AS_ATTENTION_SUB_CODE_QUEUE_PUSH_ERROR);
+      return;
+    }
+
   if (!m_oscillator.flush())
     {
       SYNTHESIZER_OBJ_ERR(AS_ECODE_DSP_STOP_ERROR);
@@ -409,6 +426,7 @@ void SynthesizerObject::activate(MsgPacket *msg)
   /* Set event callback */
 
   m_callback = act.cb;
+  m_param    = act.param;
 
   /* Active */
 
@@ -445,11 +463,11 @@ void SynthesizerObject::init(MsgPacket *msg)
   uint32_t               result  = AS_ECODE_OK;
   uint32_t               dsp_inf = 0;
 
-  SYNTHESIZER_OBJ_DBG("INIT: ch num %d, bit len %d, codec %d(%s), fs %d\n",
-                      param.channel_no,
-                      param.bit_length,
+  SYNTHESIZER_OBJ_DBG("INIT: type %d, ch num %d, bit len %d, sampling_rate %d\n",
                       param.type,
-                      param.frequency);
+                      param.channel_num,
+                      param.bit_width,
+                      param.sampling_rate);
 
   if (strcmp(m_dsp_path, param.dsp_path) != 0)
     {
@@ -600,14 +618,10 @@ void SynthesizerObject::nextReqOnExec(MsgPacket *msg)
         {
           /* Next mixer request */
 
-          data.identifier = 0;
-          data.callback   = pcm_proc_done_callback;
           data.mh         = m_pcm_buf_mh_que.top();
-          data.sample     = AS_SAMPLINGRATE_48000;
           data.size       = max_pcm_buff_size;
           data.is_end     = false;
           data.is_valid   = 1;
-          data.bit_length = m_bit_length;
 
           sendPcmToOwner(data);
 
@@ -638,26 +652,14 @@ void SynthesizerObject::nextReqOnStopping(MsgPacket *msg)
 
   /* End mixer request */
 
-  data.identifier = 0;
-  data.callback   = pcm_proc_done_callback;
-  data.is_end     = param.is_end;
-  data.bit_length = m_bit_length;
+  data.is_end   = param.is_end;
+  data.mh       = m_pcm_buf_mh_que.top();
+  data.is_valid = 1;
+  data.size     = max_pcm_buff_size;
 
-  if (!param.is_end)
-    {
-      data.mh       = m_pcm_buf_mh_que.top();
-      m_pcm_buf_mh_que.pop();
-      data.is_valid = 1;
-      data.size     = max_pcm_buff_size;
-    }
-  else
-    {
-      data.is_valid = 0;
-      data.size     = 0;
-    }
+  m_pcm_buf_mh_que.pop();
 
   sendPcmToOwner(data);
-
 }
 
 /*--------------------------------------------------------------------------*/
@@ -672,14 +674,10 @@ void SynthesizerObject::cmpDoneOnExec(MsgPacket *msg)
 
   while (!m_pcm_buf_mh_que.empty())
     {
-      data.identifier = 0;
-      data.callback   = pcm_proc_done_callback;
       data.mh         = m_pcm_buf_mh_que.top();
-      data.sample     = AS_SAMPLINGRATE_48000;
       data.size       = max_pcm_buff_size;
       data.is_end     = false;
       data.is_valid   = 1;
-      data.bit_length = m_bit_length;
 
       sendPcmToOwner(data);
 
@@ -692,7 +690,7 @@ void SynthesizerObject::cmpDoneOnExec(MsgPacket *msg)
 
   /* Next request */
 
-  if (Manager::getPoolNumAvailSegs(m_pool_id.output) > 0)
+  if (Manager::getPoolNumAvailSegs(m_pool_id.output) > 1)
     {
       oscillator_exec();
     }
@@ -723,6 +721,11 @@ void SynthesizerObject::cmpDoneOnSet(MsgPacket *msg)
 void SynthesizerObject::sendPcmToOwner(AsPcmDataParam& data)
 {
   /* Send message for PCM data notify */
+
+  data.identifier = 0;
+  data.callback   = pcm_proc_done_callback;
+  data.sample     = AS_SAMPLINGRATE_48000;
+  data.bit_length = m_bit_length;
 
   err_t er = MsgLib::send<AsPcmDataParam>(m_msgq_id.mixer,
                                           MsgPriNormal,

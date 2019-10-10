@@ -62,7 +62,9 @@
 #include "include/msgq_pool.h"
 #include "include/pool_layout.h"
 #include "include/fixed_fence.h"
-
+#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
+#include "userproc_command.h"
+#endif
 #include <arch/chip/cxd56_audio.h>
 
 /* Section number of memory layout to use */
@@ -103,15 +105,26 @@ using namespace MemMgrLite;
 
 static mpshm_t s_shm;
 
+static sem_t   s_sem;
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
-static bool app_receive_object_reply(void)
+static void outputmixer0_done_callback(MsgQueId requester_dtq,
+                                       MsgType reply_of,
+                                       AsOutputMixDoneParam *done_param)
 {
-  AudioObjReply reply_info;
+  sem_post(&s_sem);
+}
 
-  return AS_ReceiveObjectReply(MSGQ_AUD_APP, &reply_info);
+static bool synthesizer_callback(AsSynthesizerEvent evtype,
+                                 uint32_t           result,
+                                 void              *instance)
+{
+  sem_post(&s_sem);
+
+  return true;
 }
 
 static bool app_create_audio_sub_system(void)
@@ -176,10 +189,6 @@ static bool app_create_audio_sub_system(void)
 
 static void app_deact_audio_sub_system(void)
 {
-  /* Delete Oscillator. */
-
-  AS_DeleteMediaSynthesizer();
-
   /* Delete OutputMixer. */
 
   AS_DeleteOutputMix();
@@ -187,6 +196,10 @@ static void app_deact_audio_sub_system(void)
   /* Delete Renderer. */
 
   AS_DeleteRenderer();
+
+  /* Delete Oscillator. */
+
+  AS_DeleteMediaSynthesizer();
 }
 
 static bool app_activate_baseband(void)
@@ -209,18 +222,55 @@ static bool app_activate_baseband(void)
 
   mixer_act.output_device = HPOutputDevice;
   mixer_act.mixer_type    = MainOnly;
+#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
+  mixer_act.post_enable   = PostFilterEnable;
+#else
   mixer_act.post_enable   = PostFilterDisable;
-  mixer_act.cb            = NULL;
+#endif
+  mixer_act.cb            = outputmixer0_done_callback;
 
   AS_ActivateOutputMixer(OutputMixer0, &mixer_act);
-
-  if (!app_receive_object_reply())
-    {
-      printf("AS_ActivateOutputMixer() error!\n");
-    }
+  sem_wait(&s_sem);
 
   return true;
 }
+
+#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
+
+static bool app_send_initpostproc_command(void)
+{
+  AsInitPostProc  init;
+  InitParam       initpostcmd;
+
+  init.addr = reinterpret_cast<uint8_t *>(&initpostcmd);
+  init.size = sizeof(initpostcmd);
+
+  AS_InitPostprocOutputMixer(OutputMixer0, &init);
+  sem_wait(&s_sem);
+
+  return true;
+}
+
+static bool app_send_setpostproc_command(void)
+{
+  AsSetPostProc set;
+  static SetParam      setpostcmd;
+  static bool   s_toggle = false;
+
+  s_toggle = (s_toggle) ? false : true;
+
+  setpostcmd.postswitch = s_toggle;
+
+  set.addr = reinterpret_cast<uint8_t *>(&setpostcmd);
+  set.size = sizeof(SetParam);
+
+  AS_SetPostprocOutputMixer(OutputMixer0, &set);
+  sem_wait(&s_sem);
+
+  return true;
+}
+
+#endif
 
 static bool app_deactivate_baseband(void)
 {
@@ -229,11 +279,7 @@ static bool app_deactivate_baseband(void)
   AsDeactivateOutputMixer mixer_deact;
 
   AS_DeactivateOutputMixer(OutputMixer0, &mixer_deact);
-
-  if (!app_receive_object_reply())
-    {
-      printf("AS_DeactivateOutputMixer() error!\n");
-    }
+  sem_wait(&s_sem);
 
   CXD56_AUDIO_ECODE error_code;
 
@@ -254,11 +300,12 @@ static bool app_set_oscillator_status(void)
 {
   AsActivateSynthesizer act;
 
-  act.cb = NULL;
+  act.cb = synthesizer_callback;
 
   AS_ActivateMediaSynthesizer(&act);
+  sem_wait(&s_sem);
 
-  return app_receive_object_reply();
+  return true;
 }
 
 static bool app_init_oscillator()
@@ -273,29 +320,33 @@ static bool app_init_oscillator()
   sprintf(init.dsp_path, "%s/%s", DSPBIN_PATH, "OSCPROC");
 
   AS_InitMediaSynthesizer(&init);
+  sem_wait(&s_sem);
 
-  return app_receive_object_reply();
+  return true;
 }
 
 static bool app_start_oscillator(void)
 {
   AS_StartMediaSynthesizer();
+  sem_wait(&s_sem);
 
-  return app_receive_object_reply();
+  return true;
 }
 
 static bool app_stop_oscillator(void)
 {
   AS_StopMediaSynthesizer();
+  sem_wait(&s_sem);
 
-  return app_receive_object_reply();
+  return true;
 }
 
 static bool app_deactive_oscillator(void)
 {
   AS_DeactivateMediaSynthesizer();
+  sem_wait(&s_sem);
 
-  return app_receive_object_reply();
+  return true;
 }
 
 static bool app_set_frequency_oscillator(uint8_t channel_number, uint32_t *frequency)
@@ -309,11 +360,7 @@ static bool app_set_frequency_oscillator(uint8_t channel_number, uint32_t *frequ
       set_param.frequency  = frequency[i];
 
       AS_SetMediaSynthesizer(&set_param);
-
-      if (!(res = app_receive_object_reply()))
-        {
-          break;
-        }
+      sem_wait(&s_sem);
     }
 
   return res;
@@ -533,7 +580,11 @@ bool app_play_process(void)
           break;
         }
 
-      usleep(500 * 1000);
+      usleep(1000 * 1000);
+
+#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
+      app_send_setpostproc_command();
+#endif
     }
 
   /* Stop oscillator operation. */
@@ -559,6 +610,8 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
 #endif
 {
   printf("Start AudioOscillator example\n");
+
+  sem_init(&s_sem, 0, 0);
 
   /* Waiting for SD card mounting. */
 
@@ -603,6 +656,14 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
       printf("Error: app_set_oscillator_status() failure.\n");
       return 1;
     }
+
+#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
+
+  /* Init Postproc. */
+
+  app_send_initpostproc_command();
+
+#endif
 
   /* Initialize Oscillator. */
 
@@ -669,6 +730,8 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
     }
 
   printf("Exit AudioOscillator example\n");
+
+  sem_destroy(&s_sem);
 
   return 0;
 }

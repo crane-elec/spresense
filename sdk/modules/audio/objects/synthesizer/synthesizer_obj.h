@@ -97,7 +97,7 @@ public:
                                             param);
   }
 
-private:
+public:
   SynthesizerObject(void)
     : m_state(AS_MODULE_ID_SYNTHESIZER_OBJ, "", SynthsizerStateBooted)
     , m_bit_length(AS_BITLENGTH_16)
@@ -124,6 +124,7 @@ private:
   AudioState<SynthesizerState_e> m_state;
   OscllicatorComponentHandler    m_osc_hdlr;
   SynthesizerCallback            m_callback;
+  void                          *m_param;
   PcmMhQueue                     m_pcm_buf_mh_que;
   uint8_t                        m_bit_length;
   char                           m_dsp_path[AS_AUDIO_DSP_PATH_LEN];

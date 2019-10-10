@@ -156,9 +156,11 @@ bool OscillatorComponent::deactivate(void)
 /*--------------------------------------------------------------------*/
 uint32_t OscillatorComponent::init(const InitOscParam& param, uint32_t *dsp_inf)
 {
-  OSCILLATOR_CMP_DBG("INIT: codec %d, infs %d, outfs %d, bit len %d, ch num %d, complexity %d, bit rate %d, cb %08x\n",
-                     param.codec_type, param.input_sampling_rate, param.output_sampling_rate, param.bit_length,
-                     param.channel_num, param.complexity, param.bit_rate, param.callback);
+  OSCILLATOR_CMP_DBG("INIT: WaveMode %d, channel_num %d, bit len %d, sampling_rate %d\n",
+                     param.type,
+                     param.channel_num,
+                     param.bit_length,
+                     param.sampling_rate);
 
   m_callback = param.callback;
   m_instance = param.instance;

@@ -138,18 +138,17 @@ typedef enum
 
 /** SetSynthesizerStatus Command (#AUDCMD_SETSYNTHESIZERSTATUS) parameter */
 
-typedef struct
-{
-	
-} AsActivateSynthesizerParam;
-
-typedef bool (*SynthesizerCallback)(AsSynthesizerEvent evtype, uint32_t result, uint32_t sub_result);
+typedef bool (*SynthesizerCallback)(AsSynthesizerEvent evtype, uint32_t result, void *param);
 
 typedef struct
 {
-  SynthesizerCallback        cb;
+  /*! \brief [in] Processing completion callback */
 
-  AsActivateSynthesizerParam param;
+  SynthesizerCallback cb;
+
+  /*! \brief [in] General parameter to callback arguments */
+
+  void               *param;
 
 } AsActivateSynthesizer;
 
@@ -181,6 +180,8 @@ typedef struct
 
 typedef struct
 {
+  /*! \brief [in] Processing stop flag */
+
   bool  is_end;
 
 } AsCompleteSynthesizer;

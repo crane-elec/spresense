@@ -59,8 +59,8 @@ extern const PoolSectionAttr MemoryPoolLayouts[NUM_MEM_SECTIONS][NUM_MEM_LAYOUTS
       { S0_OSC_APU_CMD_POOL            , BasicType,   5, true, 0x000c5000, 0x000001cc },  /* AUDIO_WORK_AREA */
       { S0_PF0_PCM_BUF_POOL            , BasicType,   1, true, 0x000c51d8, 0x00000ffc },  /* AUDIO_WORK_AREA */
       { S0_PF1_PCM_BUF_POOL            , BasicType,   1, true, 0x000c61e0, 0x00000ffc },  /* AUDIO_WORK_AREA */
-      { S0_PF0_APU_CMD_POOL            , BasicType,   3, true, 0x000c71e8, 0x00000114 },  /* AUDIO_WORK_AREA */
-      { S0_PF1_APU_CMD_POOL            , BasicType,   3, true, 0x000c7308, 0x00000114 },  /* AUDIO_WORK_AREA */
+      { S0_PF0_APU_CMD_POOL            , BasicType,  10, true, 0x000c71e8, 0x00000398 },  /* AUDIO_WORK_AREA */
+      { S0_PF1_APU_CMD_POOL            , BasicType,  10, true, 0x000c7588, 0x00000398 },  /* AUDIO_WORK_AREA */
       { S0_NULL_POOL, 0, 0, false, 0, 0 },
     },
   },

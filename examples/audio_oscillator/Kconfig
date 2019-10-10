@@ -24,8 +24,8 @@ config EXAMPLES_AUDIO_OSCILLATOR_STACKSIZE
 	int "Audio oscillator stack size"
 	default 2048
 
-config EXAMPLES_AUDIO_OSCILLATOR_USEPREPROC
-	bool "Use preprocess"
+config EXAMPLES_AUDIO_OSCILLATOR_UPOSTPROC
+	bool "Use postprocess"
 	default n
 
 endif

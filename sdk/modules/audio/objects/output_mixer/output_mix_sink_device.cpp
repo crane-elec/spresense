@@ -184,7 +184,7 @@ OutputMixToHPI2S::MsgProc OutputMixToHPI2S::MsgProcTbl[AUD_MIX_MSG_NUM][StateNum
 
   {                                           /* OutputMixToHPI2S State: */
     &OutputMixToHPI2S::illegal_done,          /*  Booted                 */
-    &OutputMixToHPI2S::illegal_done,          /*  Ready                  */
+    &OutputMixToHPI2S::postdone_on_ready,     /*  Ready                  */
     &OutputMixToHPI2S::postdone_on_active,    /*  Active                 */
     &OutputMixToHPI2S::postdone_on_stopping,  /*  Stopping               */
     &OutputMixToHPI2S::illegal_done           /*  Underflow              */
@@ -538,6 +538,21 @@ void OutputMixToHPI2S::postdone_on_active(MsgPacket* msg)
 }
 
 /*--------------------------------------------------------------------------*/
+void OutputMixToHPI2S::postdone_on_ready(MsgPacket* msg)
+{
+  OutputMixObjPostfilterDoneCmd post_done =
+    msg->moveParam<OutputMixObjParam>().postfilterdone_param;
+
+  /* If it is not return of Exec of Flush, no need to rendering. */
+
+  if (!(post_done.event_type == CustomProcExec)
+   && !(post_done.event_type == CustomProcFlush))
+    {
+      AS_postproc_recv_done(m_p_postfliter_instance, NULL);
+    }
+}
+
+/*--------------------------------------------------------------------------*/
 void OutputMixToHPI2S::postdone_on_stopping(MsgPacket* msg)
 {
   postdone_on_active(msg);
@@ -758,7 +773,7 @@ void OutputMixToHPI2S::init_postproc(MsgPacket* msg)
   done_param.handle    = cmd.handle;
   done_param.done_type = OutputMixInitPostDone;
   done_param.result    = send_result;
-  
+
   m_callback(m_requester_dtq, MSG_AUD_MIX_CMD_INITMPP, &done_param);
 }
 
