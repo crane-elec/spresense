@@ -1,7 +1,7 @@
 ############################################################################
-# audio_oscillator/worker/lib/Makefile
+# audio_oscillator/worker_postproc/Makefile
 #
-#   Copyright 2018 Sony Semiconductor Solutions Corporation
+#   Copyright 2019 Sony Semiconductor Solutions Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -33,27 +33,43 @@
 #
 ############################################################################
 
+-include $(TOPDIR)/.config
 -include $(TOPDIR)/Make.defs
--include $(SDKDIR)/Make.defs
+include $(SDKDIR)/Make.defs
 
-BIN = libasmpw$(LIBEXT)
-WORKER_DIR = $(SDKDIR)$(DELIM)modules$(DELIM)asmp$(DELIM)worker
-LIB = $(WORKER_DIR)$(DELIM)libasmpw$(LIBEXT)
+WORKER_ELFS = src/POSTPROC
 
-all: $(BIN)
-.PHONY: depend clean distclean
+define DIR_template
+$(1)_$(2):
+	$(Q) $(MAKE) -C $(1) $(3) TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
+endef
 
-depend:
-	$(Q) $(MAKE) -C $(WORKER_DIR) TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" depend
+SUBDIRS = $(dir $(WORKER_ELFS))
 
-$(LIB): depend
-	$(Q) $(MAKE) -C $(WORKER_DIR) TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" $(BIN)
+all: $(WORKER_ELFS)
 
-$(BIN): $(LIB)
-	$(Q) install $< $@
+# Build ASMP worker library
 
-clean:
-	$(call DELFILE, $(BIN))
-	$(call CLEAN)
+lib/libasmpw.a:
+	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
 
-distclean: clean
+lib: lib/libasmpw.a
+
+# Build workers
+
+$(WORKER_ELFS): lib
+	$(Q) $(MAKE) -C $(dir $@) TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
+
+.depend:
+	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) depend
+	@touch $@
+
+depend: .depend
+
+lib_clean:
+	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" clean
+
+clean: $(foreach DIR, $(SUBDIRS), $(DIR)_clean) lib_clean
+	$(Q) rm -rf romfs romfs.img romfs.h
+
+$(foreach DIR, $(SUBDIRS), $(eval $(call DIR_template,$(DIR),clean,clean)))

@@ -1,7 +1,7 @@
 /****************************************************************************
- * audio_oscillator/worker/userproc/src/oscillator.cpp
+ * audio_oscillator/worker_preproc/userproc/src/oscillator.cpp
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2019 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,33 +59,33 @@ void Oscillator::parse(Wien2::Apu::Wien2ApuCmd *cmd)
       cmd->result.exec_result = Wien2::Apu::ApuExecError;
       return;
     }
-	
+
   (this->*CtrlFuncTbl[cmd->header.event_type][m_state])(cmd);
 }
 
 /*--------------------------------------------------------------------*/
 void Oscillator::illegal(Wien2::Apu::Wien2ApuCmd *cmd)
 {
-  cmd->result.exec_result = Wien2::Apu::ApuExecError; /* データエラートの区別ができるようにコードを分ける
-	*/
+  /* Divide the code so that you can distinguish between data errors */
+
+  cmd->result.exec_result = Wien2::Apu::ApuExecError;
 }
 
 /*--------------------------------------------------------------------*/
 void Oscillator::init(Wien2::Apu::Wien2ApuCmd *cmd)
 {
   /* Init signal process. */
-  /* データチェック */
 
+  /* Data check */
 
   for(int i = 0;i<cmd->init_osc_cmd.channel_num;i++){
-    m_frequency[i] = -1;
     m_theta[i] = 0;
     m_omega[i] = 0;
   }
 
-  m_type = cmd->init_osc_cmd.type;
-  m_channel_num = cmd->init_osc_cmd.channel_num;
-  m_bit_length = cmd->init_osc_cmd.bit_length;
+  m_type          = cmd->init_osc_cmd.type;
+  m_channel_num   = cmd->init_osc_cmd.channel_num;
+  m_bit_length    = cmd->init_osc_cmd.bit_length;
   m_sampling_rate = cmd->init_osc_cmd.sampling_rate;
 
   m_state = Ready;
@@ -96,7 +96,7 @@ void Oscillator::init(Wien2::Apu::Wien2ApuCmd *cmd)
 /*--------------------------------------------------------------------*/
 void Oscillator::exec(Wien2::Apu::Wien2ApuCmd *cmd)
 {
-  /* Execute process to input audio data. */
+   /* Execute process to input audio data. */
 
   q15_t* ptr = (q15_t*)cmd->exec_osc_cmd.buffer.p_buffer;
 
@@ -106,25 +106,28 @@ void Oscillator::exec(Wien2::Apu::Wien2ApuCmd *cmd)
 
   uint32_t sample_byte = ((m_channel_num < 2) ? 2 : m_channel_num) * 2;
 
-  for (uint32_t j = 0; j < cmd->exec_osc_cmd.buffer.size / sample_byte; j++) { /* サンプルに変える必要ある？*/
-    for (int i = 0; i < m_channel_num; i++) {
-      /* Calc sin */
+  for (uint32_t j = 0; j < cmd->exec_osc_cmd.buffer.size / sample_byte; j++)
+    {
+      for (int i = 0; i < m_channel_num; i++)
+        {
+          /* Calc sin */
 
-      q15_t val = arm_sin_q15(m_theta[i]);
+          q15_t val = arm_sin_q15(m_theta[i]);
 
-      *ptr++ = val;
+          *ptr++ = val;
 
-      /* When ch num is 1, Extend L1 -> L1L1 */
+          /* When ch num is 1, Extend L1 -> L1L1 */
 
-      if (m_channel_num < 2) {
-        *ptr++ = val;
-      }
+          if (m_channel_num < 2)
+            {
+              *ptr++ = val;
+            }
 
-      /* Update theta */
+          /* Update theta */
 
-      m_theta[i] = (m_theta[i] + m_omega[i]) & 0x7fff;
+          m_theta[i] = (m_theta[i] + m_omega[i]) & 0x7fff;
+        }
     }
-  }
 
   m_state = Active;
 
@@ -145,9 +148,8 @@ void Oscillator::flush(Wien2::Apu::Wien2ApuCmd *cmd)
 void Oscillator::set(Wien2::Apu::Wien2ApuCmd *cmd)
 {
   /* Set process parameters. */
+
   m_omega[cmd->setparam_osc_cmd.channel_no] = cmd->setparam_osc_cmd.frequency * 0x7fff / m_sampling_rate;
   
   cmd->result.exec_result = Wien2::Apu::ApuExecOK;
 }
-
-

@@ -127,6 +127,7 @@ public:
   void                          *m_param;
   PcmMhQueue                     m_pcm_buf_mh_que;
   uint8_t                        m_bit_length;
+  uint32_t                       m_sampling_rate;
   char                           m_dsp_path[AS_AUDIO_DSP_PATH_LEN];
 
   typedef void (SynthesizerObject::*MsgProc)(MsgPacket*);

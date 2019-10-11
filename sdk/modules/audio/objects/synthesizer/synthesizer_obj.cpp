@@ -524,27 +524,10 @@ void SynthesizerObject::init(MsgPacket *msg)
       m_bit_length = param.bit_width;
 
       /* Sampling rate setting */
-#if 0
-      if (param.sampling_rate == AS_SAMPLINGRATE_48000)
-        {
-          osc_init.sampling_rate = AudFs_48000;
-        }
-      else if (param.sampling_rate == AS_SAMPLINGRATE_96000)
-        {
-          osc_init.sampling_rate = AudFs_96000;
-        }
-      else if (param.sampling_rate == AS_SAMPLINGRATE_192000)
-        {
-          osc_init.sampling_rate = AudFs_192000;
-        }
-      else
-        {
-          result = AS_ATTENTION_SUB_CODE_ILLEGAL_REQUEST;
-          SYNTHESIZER_OBJ_ERR(result);
-        }
-#else
+
+      m_sampling_rate = param.sampling_rate;
+
       osc_init.sampling_rate = param.sampling_rate;
-#endif
 
       /* Callback, parameter setting */
 
@@ -724,7 +707,7 @@ void SynthesizerObject::sendPcmToOwner(AsPcmDataParam& data)
 
   data.identifier = 0;
   data.callback   = pcm_proc_done_callback;
-  data.sample     = AS_SAMPLINGRATE_48000;
+  data.sample     = m_sampling_rate;
   data.bit_length = m_bit_length;
 
   err_t er = MsgLib::send<AsPcmDataParam>(m_msgq_id.mixer,

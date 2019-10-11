@@ -1,5 +1,5 @@
 ############################################################################
-# audio_oscillator/worker/Makefile
+# audio_oscillator/worker_preproc/lib/Makefile
 #
 #   Copyright 2019 Sony Semiconductor Solutions Corporation
 #
@@ -33,77 +33,27 @@
 #
 ############################################################################
 
--include $(TOPDIR)/.config
 -include $(TOPDIR)/Make.defs
-include $(SDKDIR)/Make.defs
+-include $(SDKDIR)/Make.defs
 
-ifeq ($(WINTOOL),y)
-LIB_DIR = "${shell cygpath -w lib}"
-else
-LIB_DIR = "lib"
-endif
+BIN = libasmpw$(LIBEXT)
+WORKER_DIR = $(SDKDIR)$(DELIM)modules$(DELIM)asmp$(DELIM)worker
+LIB = $(WORKER_DIR)$(DELIM)libasmpw$(LIBEXT)
 
-LDLIBPATH += -L $(LIB_DIR)
-LDLIBPATH += -L "$(SDKDIR)/lib"
+all: $(BIN)
+.PHONY: depend clean distclean
 
-LDLIBS += -lasmpw -lc
-LDLIBS += -larm_cortexM4lf_math
+depend:
+	$(Q) $(MAKE) -C $(WORKER_DIR) TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" depend
 
-WORKER_ELF = OSCPROC
+$(LIB): depend
+	$(Q) $(MAKE) -C $(WORKER_DIR) TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" $(BIN)
 
-VPATH += userproc/src
+$(BIN): $(LIB)
+	$(Q) install $< $@
 
-CXXSRCS = main.cpp oscillator.cpp
-
-CXXELFFLAGS += -Os
-ifeq ($(WINTOOL),y)
-CXXELFFLAGS += -I"$(shell cygpath -w userproc$(DELIM)include)"
-CXXELFFLAGS += -I"$(shell cygpath -w $(APPDIR))"
-CXXELFFLAGS += -I"$(shell cygpath -w $(SDKDIR)$(DELIM)modules$(DELIM)audio$(DELIM)include)"
-else
-CXXELFFLAGS += -Iuserproc/include
-CXXELFFLAGS += -I$(APPDIR)
-CXXELFFLAGS += -I$(SDKDIR)/modules/audio/include
-endif
-
-CXXFLAGS += -D_POSIX
-
-CXXOBJS = $(CXXSRCS:.cpp=$(OBJEXT))
-
-# Build
-
-all: lib $(WORKER_ELF)
-
-# Build ASMP worker library
-
-libasmpw.a:
-	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
-
-lib: libasmpw.a
-
-# Complile
-
-$(CXXOBJS): %$(OBJEXT):%.cpp
-	@echo "CXX: $<"
-	$(Q) $(CXX) -c $(CXXELFFLAGS) $< -o $@
-
-# Build workers
-
-$(WORKER_ELF): $(CXXOBJS) | $(CMSIS_DSP_LIB)
-	@echo "LD: $@"
-	$(Q) $(LD) -Map=tmp.map $(LDRAWELFFLAGS) $(LDLIBPATH) -o $@ $(ARCHCRT0OBJ) $^ $(LDLIBS)
-	$(Q) $(STRIP) -d $(WORKER_ELF)
-
-.depend:
-	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) depend
-	@touch $@
-
-depend: .depend
-
-lib_clean:
-	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) clean
-
-clean: lib_clean
-	$(call DELFILE, $(WORKER_ELF))
+clean:
+	$(call DELFILE, $(BIN))
 	$(call CLEAN)
 
+distclean: clean

@@ -1,7 +1,7 @@
 ############################################################################
 # audio_oscillator/Makefile
 #
-#   Copyright 2018 Sony Semiconductor Solutions Corporation
+#   Copyright 2019 Sony Semiconductor Solutions Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -59,14 +59,12 @@ AUDIODIR = $(SDKDIR)$(DELIM)modules$(DELIM)audio
 
 ifeq ($(WINTOOL),y)
 CXXFLAGS += -I "${shell cygpath -w $(AUDIODIR)}"
-ifeq ($(CONFIG_EXAMPLES_AUDIO_OSCILLATOR_USEPREPROC),y)
-CXXFLAGS += -I "${shell cygpath -w worker/userproc/include}"
-endif
+CXXFLAGS += -I "${shell cygpath -w worker_preproc/userproc/include}"
+CXXFLAGS += -I "${shell cygpath -w worker_postproc/src/userproc/include}"
 else
 CXXFLAGS += -I $(AUDIODIR)
-ifeq ($(CONFIG_EXAMPLES_AUDIO_OSCILLATOR_USEPREPROC),y)
-CXXFLAGS += -I worker/userproc/include
-endif
+CXXFLAGS += -I worker_preproc/userproc/include
+CXXFLAGS += -I worker_postproc/src/userproc/include
 endif
 
 CXXFLAGS += -D_POSIX
@@ -75,8 +73,6 @@ CXXFLAGS += -DATTENTION_USE_FILENAME_LINE
 
 CONFIG_EXAMPLES_AUDIO_OSCILLATOR_PROGNAME ?= audio_oscillator$(EXEEXT)
 PROGNAME = $(CONFIG_EXAMPLES_AUDIO_OSCILLATOR_PROGNAME)
-
-ifeq ($(CONFIG_EXAMPLES_AUDIO_OSCILLATOR_USEPREPROC),y)
 
 # Instead of including "Applicaion.mk", write "make rules" here.
 # (Cannot use "Application.mk" because targe "clean" will duplicate and be ignored.)
@@ -103,7 +99,8 @@ endif
 
 ROOTDEPPATH = --dep-path .
 
-VPATH = worker
+VPATH = worker_preproc
+VPATH += worker_postproc
 
 all: .built
 .PHONY: .built worker_build clean
@@ -115,7 +112,8 @@ $(MAINOBJ): %$(OBJEXT): %$(CXXEXT)
 	$(call COMPILEXX, $<, $@)
 
 worker_build:
-	$(Q) $(MAKE) -C worker TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
+	$(Q) $(MAKE) -C worker_preproc TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
+	$(Q) $(MAKE) -C worker_postproc TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
 
 .built: $(OBJS) worker_build
 
@@ -142,16 +140,19 @@ endif
 
 .depend: Makefile $(SRCS)
 	$(Q) $(MKDEP) $(ROOTDEPPATH) "$(CXX)" -- $(CXXFLAGS) -- $(SRCS) >Make.dep
-	$(Q) $(MAKE) -C worker TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) depend
+	$(Q) $(MAKE) -C worker_preproc TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) depend
+	$(Q) $(MAKE) -C worker_postproc TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) depend
 	$(Q) touch $@
 
 depend: .depend
 
 clean_worker:
-	@$(MAKE) -C worker TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) clean
+	@$(MAKE) -C worker_preproc TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) clean
+	@$(MAKE) -C worker_postproc TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) clean
 
 clean: clean_worker
-	$(call DELFILE, .worker)
+	$(call DELFILE, .worker_preproc)
+	$(call DELFILE, .worker_postproc)
 	$(call CLEAN)
 
 distclean: clean
@@ -161,10 +162,3 @@ distclean: clean
 -include Make.dep
 .PHONY: preconfig
 preconfig:
-
-else
-
-include $(APPDIR)/Application.mk
-
-endif
-

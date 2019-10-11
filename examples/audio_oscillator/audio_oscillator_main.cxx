@@ -62,9 +62,7 @@
 #include "include/msgq_pool.h"
 #include "include/pool_layout.h"
 #include "include/fixed_fence.h"
-#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
 #include "userproc_command.h"
-#endif
 #include <arch/chip/cxd56_audio.h>
 
 /* Section number of memory layout to use */
@@ -81,13 +79,30 @@ using namespace MemMgrLite;
 
 #define DSPBIN_PATH "/mnt/sd0/BIN"
 
-/* Output time(sec). */
-
-#define OSCILLATOR_REC_TIME 20
-
 /* Default Volume. -20dB */
 
 #define VOLUME  -200
+
+/* Musical scale */
+
+#define M_C_4   262   /* Do */
+#define M_CC4   277
+#define M_D_4   294   /* Re */
+#define M_DD4   311
+#define M_E_4   330   /* Mi */
+#define M_F_4   349   /* Fa */
+#define M_FF4   370
+#define M_G_4   392   /* So */
+#define M_GG4   415
+#define M_A_4   440   /* Ra */
+#define M_AA4   466
+#define M_B_4   494   /* Si */
+#define M_C_5   523
+#define M_END  9999
+
+/* #define MAX_CHANNEL_NUMBER 8 */
+
+#define CHANNEL_NUMBER 8
 
 /****************************************************************************
  * Private Function Prototypes
@@ -101,30 +116,116 @@ using namespace MemMgrLite;
  * Private Data
  ****************************************************************************/
 
+/* Define beep scale */
+
+static struct {
+  uint32_t  fs[CHANNEL_NUMBER];
+}
+node[] = {
+  {M_C_4,     0,     0,     0,     0,     0,     0,     0},
+  {M_D_4,     0,     0,     0,     0,     0,     0,     0},
+  {M_E_4,     0,     0,     0,     0,     0,     0,     0},
+  {M_F_4,     0,     0,     0,     0,     0,     0,     0},
+  {M_E_4,     0,     0,     0,     0,     0,     0,     0},
+  {M_D_4,     0,     0,     0,     0,     0,     0,     0},
+  {M_C_4,     0,     0,     0,     0,     0,     0,     0},
+  {M_C_4,     0,     0,     0,     0,     0,     0,     0},
+  {M_E_4, M_C_4,     0,     0,     0,     0,     0,     0},
+  {M_F_4, M_D_4,     0,     0,     0,     0,     0,     0},
+  {M_G_4, M_E_4,     0,     0,     0,     0,     0,     0},
+  {M_A_4, M_F_4,     0,     0,     0,     0,     0,     0},
+  {M_G_4, M_E_4,     0,     0,     0,     0,     0,     0},
+  {M_F_4, M_D_4,     0,     0,     0,     0,     0,     0},
+  {M_E_4, M_C_4,     0,     0,     0,     0,     0,     0},
+  {M_E_4, M_C_4,     0,     0,     0,     0,     0,     0},
+  {M_C_4, M_E_4, M_C_4,     0,     0,     0,     0,     0},
+  {    0, M_F_4, M_D_4,     0,     0,     0,     0,     0},
+  {M_C_4, M_G_4, M_E_4,     0,     0,     0,     0,     0},
+  {    0, M_A_4, M_F_4,     0,     0,     0,     0,     0},
+  {M_C_4, M_G_4, M_E_4,     0,     0,     0,     0,     0},
+  {    0, M_F_4, M_D_4,     0,     0,     0,     0,     0},
+  {M_C_4, M_E_4, M_C_4,     0,     0,     0,     0,     0},
+  {    0, M_E_4, M_C_4,     0,     0,     0,     0,     0},
+  {M_C_4, M_C_4, M_E_4, M_C_4,     0,     0,     0,     0},
+  {M_D_4,     1, M_F_4, M_D_4,     0,     0,     0,     0},
+  {M_E_4, M_C_4, M_G_4, M_E_4,     0,     0,     0,     0},
+  {M_F_4,     1, M_A_4, M_F_4,     0,     0,     0,     0},
+  {M_E_4, M_C_4, M_G_4, M_E_4,     0,     0,     0,     0},
+  {M_D_4,     1, M_F_4, M_D_4,     0,     0,     0,     0},
+  {M_C_4, M_C_4, M_E_4, M_C_4,     0,     0,     0,     0},
+  {    0,     1, M_E_4, M_C_4,     0,     0,     0,     0},
+  {    0, M_C_4, M_C_4, M_E_4, M_C_4,     0,     0,     0},
+  {    0, M_D_4,     1, M_F_4, M_D_4,     0,     0,     0},
+  {    0, M_E_4, M_C_4, M_G_4, M_E_4,     0,     0,     0},
+  {    0, M_F_4,     1, M_A_4, M_F_4,     0,     0,     0},
+  {    0, M_E_4, M_C_4, M_G_4, M_E_4,     0,     0,     0},
+  {    0, M_D_4,     1, M_F_4, M_D_4,     0,     0,     0},
+  {    0, M_C_4, M_C_4, M_E_4, M_C_4,     0,     0,     0},
+  {    0,     0,     1, M_E_4, M_C_4,     0,     0,     0},
+  {    0,     0, M_C_4, M_C_4, M_E_4, M_C_4,     0,     0},
+  {    0,     0, M_D_4,     1, M_F_4, M_D_4,     0,     0},
+  {    0,     0, M_E_4, M_C_4, M_G_4, M_E_4,     0,     0},
+  {    0,     0, M_F_4,     1, M_A_4, M_F_4,     0,     0},
+  {    0,     0, M_E_4, M_C_4, M_G_4, M_E_4,     0,     0},
+  {    0,     0, M_D_4,     1, M_F_4, M_D_4,     0,     0},
+  {    0,     0, M_C_4, M_C_4, M_E_4, M_C_4,     0,     0},
+  {    0,     0,     0,     1, M_E_4, M_C_4,     0,     0},
+  {    0,     0,     0, M_C_4, M_C_4, M_E_4, M_C_4,     0},
+  {    0,     0,     0, M_D_4,     1, M_F_4, M_D_4,     0},
+  {    0,     0,     0, M_E_4, M_C_4, M_G_4, M_E_4,     0},
+  {    0,     0,     0, M_F_4,     1, M_A_4, M_F_4,     0},
+  {    0,     0,     0, M_E_4, M_C_4, M_G_4, M_E_4,     0},
+  {    0,     0,     0, M_D_4,     1, M_F_4, M_D_4,     0},
+  {    0,     0,     0, M_C_4, M_C_4, M_E_4, M_C_4,     0},
+  {    0,     0,     0,     0,     1, M_E_4, M_C_4,     0},
+  {    0,     0,     0,     0, M_C_4, M_C_4, M_E_4, M_C_4},
+  {    0,     0,     0,     0, M_D_4,     1, M_F_4, M_D_4},
+  {    0,     0,     0,     0, M_E_4, M_C_4, M_G_4, M_E_4},
+  {    0,     0,     0,     0, M_F_4,     1, M_A_4, M_F_4},
+  {    0,     0,     0,     0, M_E_4, M_C_4, M_G_4, M_E_4},
+  {    0,     0,     0,     0, M_D_4,     1, M_F_4, M_D_4},
+  {    0,     0,     0,     0, M_C_4, M_C_4, M_E_4, M_C_4},
+  {    0,     0,     0,     0,     0,     1, M_E_4, M_C_4},
+  {    0,     0,     0,     0,     0, M_C_4, M_C_4, M_E_4},
+  {    0,     0,     0,     0,     0, M_D_4,     1, M_F_4},
+  {    0,     0,     0,     0,     0, M_E_4, M_C_4, M_G_4},
+  {    0,     0,     0,     0,     0, M_F_4,     1, M_A_4},
+  {    0,     0,     0,     0,     0, M_E_4, M_C_4, M_G_4},
+  {    0,     0,     0,     0,     0, M_D_4,     1, M_F_4},
+  {    0,     0,     0,     0,     0, M_C_4, M_C_4, M_E_4},
+  {    0,     0,     0,     0,     0,     0,     1, M_E_4},
+  {    0,     0,     0,     0,     0,     0, M_C_4, M_C_4},
+  {    0,     0,     0,     0,     0,     0, M_D_4,     1},
+  {    0,     0,     0,     0,     0,     0, M_E_4, M_C_4},
+  {    0,     0,     0,     0,     0,     0, M_F_4,     1},
+  {    0,     0,     0,     0,     0,     0, M_E_4, M_C_4},
+  {    0,     0,     0,     0,     0,     0, M_D_4,     1},
+  {    0,     0,     0,     0,     0,     0, M_C_4, M_C_4},
+  {    0,     0,     0,     0,     0,     0,     0,     1},
+  {    0,     0,     0,     0,     0,     0,     0, M_C_4},
+  {    0,     0,     0,     0,     0,     0,     0, M_D_4},
+  {    0,     0,     0,     0,     0,     0,     0, M_E_4},
+  {    0,     0,     0,     0,     0,     0,     0, M_F_4},
+  {    0,     0,     0,     0,     0,     0,     0, M_E_4},
+  {    0,     0,     0,     0,     0,     0,     0, M_D_4},
+  {    0,     0,     0,     0,     0,     0,     0, M_C_4},
+  {M_END,     0,     0,     0,     0,     0,     0,     0},
+},
+*p_node;
+
 /* For share memory. */
 
 static mpshm_t s_shm;
-
-static sem_t   s_sem;
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
-static void outputmixer0_done_callback(MsgQueId requester_dtq,
-                                       MsgType reply_of,
-                                       AsOutputMixDoneParam *done_param)
+static bool app_receive_object_reply(void)
 {
-  sem_post(&s_sem);
-}
+  AudioObjReply reply_info;
 
-static bool synthesizer_callback(AsSynthesizerEvent evtype,
-                                 uint32_t           result,
-                                 void              *instance)
-{
-  sem_post(&s_sem);
-
-  return true;
+  return AS_ReceiveObjectReply(MSGQ_AUD_APP, &reply_info);
 }
 
 static bool app_create_audio_sub_system(void)
@@ -222,20 +323,13 @@ static bool app_activate_baseband(void)
 
   mixer_act.output_device = HPOutputDevice;
   mixer_act.mixer_type    = MainOnly;
-#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
   mixer_act.post_enable   = PostFilterEnable;
-#else
-  mixer_act.post_enable   = PostFilterDisable;
-#endif
-  mixer_act.cb            = outputmixer0_done_callback;
+  mixer_act.cb            = NULL;
 
   AS_ActivateOutputMixer(OutputMixer0, &mixer_act);
-  sem_wait(&s_sem);
 
-  return true;
+  return app_receive_object_reply();
 }
-
-#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
 
 static bool app_send_initpostproc_command(void)
 {
@@ -246,31 +340,9 @@ static bool app_send_initpostproc_command(void)
   init.size = sizeof(initpostcmd);
 
   AS_InitPostprocOutputMixer(OutputMixer0, &init);
-  sem_wait(&s_sem);
 
-  return true;
+  return app_receive_object_reply();
 }
-
-static bool app_send_setpostproc_command(void)
-{
-  AsSetPostProc set;
-  static SetParam      setpostcmd;
-  static bool   s_toggle = false;
-
-  s_toggle = (s_toggle) ? false : true;
-
-  setpostcmd.postswitch = s_toggle;
-
-  set.addr = reinterpret_cast<uint8_t *>(&setpostcmd);
-  set.size = sizeof(SetParam);
-
-  AS_SetPostprocOutputMixer(OutputMixer0, &set);
-  sem_wait(&s_sem);
-
-  return true;
-}
-
-#endif
 
 static bool app_deactivate_baseband(void)
 {
@@ -279,7 +351,11 @@ static bool app_deactivate_baseband(void)
   AsDeactivateOutputMixer mixer_deact;
 
   AS_DeactivateOutputMixer(OutputMixer0, &mixer_deact);
-  sem_wait(&s_sem);
+
+  if (!app_receive_object_reply())
+    {
+      return false;
+    }
 
   CXD56_AUDIO_ECODE error_code;
 
@@ -300,12 +376,11 @@ static bool app_set_oscillator_status(void)
 {
   AsActivateSynthesizer act;
 
-  act.cb = synthesizer_callback;
+  act.cb = NULL;
 
   AS_ActivateMediaSynthesizer(&act);
-  sem_wait(&s_sem);
 
-  return true;
+  return app_receive_object_reply();
 }
 
 static bool app_init_oscillator()
@@ -313,40 +388,36 @@ static bool app_init_oscillator()
   AsInitSynthesizerParam  init;
 
   init.type          = AsSynthesizerSinWave;
-  init.channel_num   = AS_CHANNEL_6CH;
+  init.channel_num   = AS_CHANNEL_8CH;
   init.sampling_rate = AS_SAMPLINGRATE_48000;
   init.bit_width     = AS_BITLENGTH_16;
 
   sprintf(init.dsp_path, "%s/%s", DSPBIN_PATH, "OSCPROC");
 
   AS_InitMediaSynthesizer(&init);
-  sem_wait(&s_sem);
 
-  return true;
+  return app_receive_object_reply();
 }
 
 static bool app_start_oscillator(void)
 {
   AS_StartMediaSynthesizer();
-  sem_wait(&s_sem);
 
-  return true;
+  return app_receive_object_reply();
 }
 
 static bool app_stop_oscillator(void)
 {
   AS_StopMediaSynthesizer();
-  sem_wait(&s_sem);
 
-  return true;
+  return app_receive_object_reply();
 }
 
 static bool app_deactive_oscillator(void)
 {
   AS_DeactivateMediaSynthesizer();
-  sem_wait(&s_sem);
 
-  return true;
+  return app_receive_object_reply();
 }
 
 static bool app_set_frequency_oscillator(uint8_t channel_number, uint32_t *frequency)
@@ -360,7 +431,11 @@ static bool app_set_frequency_oscillator(uint8_t channel_number, uint32_t *frequ
       set_param.frequency  = frequency[i];
 
       AS_SetMediaSynthesizer(&set_param);
-      sem_wait(&s_sem);
+
+      if (!(res = app_receive_object_reply()))
+        {
+          break;
+        }
     }
 
   return res;
@@ -524,37 +599,21 @@ bool app_play_process(void)
 {
   bool  res = true;
 
-  /* Define beep scale */
-
-  struct {
-    uint32_t  fs[6];
-  }
-  node[] = {
-    {131,  523,    0,    0,  523,  262},
-    {131,  523,    0,    0,    0,  294},
-    {147,  587,    0,    0,  587,  330},
-    {147,  587,    0,    0,    0,  349},
-    {165,  659,    0, 1046,  659,  392},
-    {165,  659,    0, 1174,    0,  440},
-    {175,  697,    0, 1318,  697,  494},
-    {175,  697,    0, 1397,    0,  523},
-    {196,  784,  262, 1568,  784,    0},
-    {196,  784,  294, 1760,    0,    0},
-    {220,  880,  330, 1976,  880,    0},
-    {220,  880,  349, 2093,    0,    0},
-    {247,  988,  392,    0,  988,    0},
-    {247,  988,  440,    0,    0,    0},
-    {262, 1046,  494,    0, 1046,    0},
-    {262, 1046,  523,    0,    0,    0},
-    {  0,    0,    0,    0,    0,    0}   /* Terminate */
-  },
-  *p_node = node;
+  p_node = node;
 
   /* Initial value setting */
 
-  if (!(res = app_set_frequency_oscillator(6, p_node->fs)))
+  if (!(res = app_set_frequency_oscillator(CHANNEL_NUMBER, p_node->fs)))
     {
       printf("Error: app_set_frequency_oscillator() failure.\n");
+      goto errout_app_play_process;
+    }
+
+  /* Set output mute. */
+
+  if (board_external_amp_mute_control(false) != OK)
+    {
+      printf("Error: board_external_amp_mute_control(false) failuer.\n");
       goto errout_app_play_process;
     }
 
@@ -570,21 +629,24 @@ bool app_play_process(void)
 
   printf("Running...\n");
 
-  for (; p_node->fs[0]; p_node++)
+  for (; p_node->fs[0] != M_END; p_node++)
     {
       /* Set frequency. */
 
-      if (!(res = app_set_frequency_oscillator(6, p_node->fs)))
+      if (!(res = app_set_frequency_oscillator(CHANNEL_NUMBER, p_node->fs)))
         {
           printf("Error: app_set_frequency_oscillator() failure.\n");
           break;
         }
 
-      usleep(1000 * 1000);
+      usleep(300 * 1000);
+    }
 
-#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
-      app_send_setpostproc_command();
-#endif
+  /* Set output mute. */
+
+  if (board_external_amp_mute_control(true) != OK)
+    {
+      printf("Error: board_external_amp_mute_control(true) failuer.\n");
     }
 
   /* Stop oscillator operation. */
@@ -610,8 +672,6 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
 #endif
 {
   printf("Start AudioOscillator example\n");
-
-  sem_init(&s_sem, 0, 0);
 
   /* Waiting for SD card mounting. */
 
@@ -657,13 +717,9 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
       return 1;
     }
 
-#ifdef EXAMPLES_AUDIO_OSCILLATOR_USEPPOSTPROC
-
   /* Init Postproc. */
 
   app_send_initpostproc_command();
-
-#endif
 
   /* Initialize Oscillator. */
 
@@ -677,27 +733,11 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
 
   app_set_volume(VOLUME);
 
-  /* Set output mute. */
-
-  if (board_external_amp_mute_control(false) != OK)
-    {
-      printf("Error: board_external_amp_mute_control(false) failuer.\n");
-      return 1;
-    }
-
   /* Running... */
 
   if (!app_play_process())
     {
       printf("Error: app_play_process() failure.\n");
-      return 1;
-    }
-
-  /* Set output mute. */
-
-  if (board_external_amp_mute_control(true) != OK)
-    {
-      printf("Error: board_external_amp_mute_control(true) failuer.\n");
       return 1;
     }
 
@@ -730,8 +770,6 @@ extern "C" int audio_oscillator_main(int argc, char *argv[])
     }
 
   printf("Exit AudioOscillator example\n");
-
-  sem_destroy(&s_sem);
 
   return 0;
 }

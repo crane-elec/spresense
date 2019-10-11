@@ -1,7 +1,7 @@
 /****************************************************************************
- * audio_oscillator/worker/main.cpp
+ * audio_oscillator/worker_preproc/main.cpp
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2019 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -149,4 +149,3 @@ int main()
       reply_to_spu(reinterpret_cast<void *>(msgdata));
     }
 }
-
