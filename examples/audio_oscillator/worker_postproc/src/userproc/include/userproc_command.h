@@ -1,5 +1,5 @@
 /****************************************************************************
- * audio_recorder/include/memory_layout.h
+ * audio_oscillator/worker_postproc/src/userproc/include/userproc_command.h
  *
  *   Copyright 2019 Sony Semiconductor Solutions Corporation
  *
@@ -32,9 +32,44 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-#ifndef __AUDIO_LAYOUT_H_INCLUDED__
-#define __AUDIO_LAYOUT_H_INCLUDED__
 
-#define MEM_LAYOUT_OSCILLATOR (0)
+#ifndef __USERPROC_COMMAND_H__
+#define __USERPROC_COMMAND_H__
 
-#endif /* __AUDIO_LAYOUT_H_INCLUDED__ */
+#include <stdint.h>
+#include <audio/dsp_framework/customproc_command_base.h>
+
+struct InitParam : public CustomprocCommand::CmdBase
+{
+  uint32_t reserve0;
+  uint32_t reserve1;
+  uint32_t reserve2;
+  uint32_t reserve3;
+};
+
+struct ExecParam : public CustomprocCommand::CmdBase
+{
+  uint32_t reserve0;
+  uint32_t reserve1;
+  uint32_t reserve2;
+  uint32_t reserve3;
+};
+
+struct FlushParam : public CustomprocCommand::CmdBase
+{
+  uint32_t reserve0;
+  uint32_t reserve1;
+  uint32_t reserve2;
+  uint32_t reserve3;
+};
+
+struct SetParam : public CustomprocCommand::CmdBase
+{
+  uint32_t postswitch;
+  uint32_t reserve1;
+  uint32_t reserve2;
+  uint32_t reserve3;
+};
+
+#endif /* __USERPROC_COMMAND_H__ */
+

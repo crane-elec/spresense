@@ -1,7 +1,7 @@
 /****************************************************************************
- * audio_oscillator/worker/userproc/include/oscillator.h
+ * audio_oscillator/worker_postproc/src/userproc/include/userproc.h
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2019 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,58 +33,39 @@
  *
  ****************************************************************************/
 
-#ifndef __OSCILLATOR_H__
-#define __OSCILLATOR_H__
+#ifndef __USERPROC_H__
+#define __USERPROC_H__
 
-#include <wien2_common_defs.h>
-#include <apus/apu_cmd.h>
+#include <string.h>
 
-#include <cstdlib>
-#include "../../arm-none-eabi/include/math.h"
-#include "arm_math.h"
+#include <audio/dsp_framework/customproc_dsp_userproc_if.h>
+#include "userproc_command.h"
 
-#define MAX_CHANNEL_NUMBER 6
+#define MAX_CHANNEL_NUMBER 8
 
-class Oscillator
+class UserProc : public CustomprocDspUserProcIf
 {
 public:
 
-  Oscillator()
-    : m_state(Booted)
+  UserProc() :
+    m_toggle(true)
   {}
 
-  void parse(Wien2::Apu::Wien2ApuCmd *cmd);
-
-  void illegal(Wien2::Apu::Wien2ApuCmd *cmd);
-  void init(Wien2::Apu::Wien2ApuCmd *cmd);
-  void exec(Wien2::Apu::Wien2ApuCmd *cmd);
-  void flush(Wien2::Apu::Wien2ApuCmd *cmd);
-  void set(Wien2::Apu::Wien2ApuCmd *cmd);
+  virtual void init(CustomprocCommand::CmdBase *cmd) { init(static_cast<InitParam *>(cmd)); }
+  virtual void exec(CustomprocCommand::CmdBase *cmd) { exec(static_cast<ExecParam *>(cmd)); }
+  virtual void flush(CustomprocCommand::CmdBase *cmd) { flush(static_cast<FlushParam *>(cmd)); }
+  virtual void set(CustomprocCommand::CmdBase *cmd) { set(static_cast<SetParam *>(cmd)); }
 
 private:
-  Wien2::WaveMode         m_type;
-  int32_t                 m_frequency[MAX_CHANNEL_NUMBER];
-  int8_t                  m_channel_num;
-  Wien2::AudioPcmBitWidth m_bit_length;     /**< Bit length of data */
-  uint32_t                m_sampling_rate;  /**< Sampling rate of data */
 
-  q15_t                   m_theta[MAX_CHANNEL_NUMBER];
-  q15_t                   m_omega[MAX_CHANNEL_NUMBER];
+  bool m_toggle;
 
-  enum OscState
-  {
-    Booted = 0,
-    Ready,
-    Active,
+  void init(InitParam *param);
+  void exec(ExecParam *param);
+  void flush(FlushParam *param);
+  void set(SetParam *param);
 
-    OscStateNum
-  };
-
-  OscState m_state;
-
-  typedef void (Oscillator::*CtrlProc)(Wien2::Apu::Wien2ApuCmd *cmd);
-  static CtrlProc CtrlFuncTbl[Wien2::Apu::ApuEventTypeNum][OscStateNum];
 };
 
-#endif /* __OSCILLATOR_H__ */
+#endif /* __USERPROC_H__ */
 

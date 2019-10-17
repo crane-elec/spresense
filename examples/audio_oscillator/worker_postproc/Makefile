@@ -1,5 +1,5 @@
 ############################################################################
-# audio_oscillator/worker/Makefile
+# audio_oscillator/worker_postproc/Makefile
 #
 #   Copyright 2019 Sony Semiconductor Solutions Corporation
 #
@@ -37,64 +37,28 @@
 -include $(TOPDIR)/Make.defs
 include $(SDKDIR)/Make.defs
 
-ifeq ($(WINTOOL),y)
-LIB_DIR = "${shell cygpath -w lib}"
-else
-LIB_DIR = "lib"
-endif
+WORKER_ELFS = src/POSTPROC
 
-LDLIBPATH += -L $(LIB_DIR)
-LDLIBPATH += -L "$(SDKDIR)/lib"
+define DIR_template
+$(1)_$(2):
+	$(Q) $(MAKE) -C $(1) $(3) TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
+endef
 
-LDLIBS += -lasmpw -lc
-LDLIBS += -larm_cortexM4lf_math
+SUBDIRS = $(dir $(WORKER_ELFS))
 
-WORKER_ELF = OSCPROC
-
-VPATH += userproc/src
-
-CXXSRCS = main.cpp oscillator.cpp
-
-#LDLIBS += -larm_cortexM4lf_math
-
-CXXELFFLAGS += -Os
-ifeq ($(WINTOOL),y)
-CXXELFFLAGS += -I"$(shell cygpath -w userproc$(DELIM)include)"
-CXXELFFLAGS += -I"$(shell cygpath -w $(APPDIR))"
-CXXELFFLAGS += -I"$(shell cygpath -w $(SDKDIR)$(DELIM)modules$(DELIM)audio$(DELIM)include)"
-else
-CXXELFFLAGS += -Iuserproc/include
-CXXELFFLAGS += -I$(APPDIR)
-CXXELFFLAGS += -I$(SDKDIR)/modules/audio/include
-endif
-
-CXXFLAGS += -D_POSIX
-
-CXXOBJS = $(CXXSRCS:.cpp=$(OBJEXT))
-
-# Build
-
-all: lib $(WORKER_ELF)
+all: $(WORKER_ELFS)
 
 # Build ASMP worker library
 
-libasmpw.a:
+lib/libasmpw.a:
 	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
 
-lib: libasmpw.a
-
-# Complile
-
-$(CXXOBJS): %$(OBJEXT):%.cpp
-	@echo "CXX: $<"
-	$(Q) $(CXX) -c $(CXXELFFLAGS) $< -o $@
+lib: lib/libasmpw.a
 
 # Build workers
 
-$(WORKER_ELF): $(CXXOBJS)
-	@echo "LD: $@"
-	$(Q) $(LD) -Map=tmp.map $(LDRAWELFFLAGS) $(LDLIBPATH) -o $@ $(ARCHCRT0OBJ) $^ $(LDLIBS)
-	$(Q) $(STRIP) -d $(WORKER_ELF)
+$(WORKER_ELFS): lib
+	$(Q) $(MAKE) -C $(dir $@) TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV)
 
 .depend:
 	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) depend
@@ -103,9 +67,9 @@ $(WORKER_ELF): $(CXXOBJS)
 depend: .depend
 
 lib_clean:
-	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" SDKDIR="$(SDKDIR)" APPDIR="$(APPDIR)" CROSSDEV=$(CROSSDEV) clean
+	$(Q) $(MAKE) -C lib TOPDIR="$(TOPDIR)" clean
 
-clean: lib_clean
-	$(call DELFILE, $(WORKER_ELF))
-	$(call CLEAN)
+clean: $(foreach DIR, $(SUBDIRS), $(DIR)_clean) lib_clean
+	$(Q) rm -rf romfs romfs.img romfs.h
 
+$(foreach DIR, $(SUBDIRS), $(eval $(call DIR_template,$(DIR),clean,clean)))

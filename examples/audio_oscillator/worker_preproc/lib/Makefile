@@ -1,7 +1,7 @@
 ############################################################################
-# audio_oscillator/worker/lib/Makefile
+# audio_oscillator/worker_preproc/lib/Makefile
 #
-#   Copyright 2018 Sony Semiconductor Solutions Corporation
+#   Copyright 2019 Sony Semiconductor Solutions Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
