@@ -45,8 +45,9 @@ void GeneratorBase::init(uint8_t bits/* only 16bits*/ , uint32_t rate, uint8_t c
   m_omega = 0;
   m_sampling_rate = rate;
   m_channels = (channels < 2) ? 2 : channels;
-
+  m_fraction = 2;
 }
+
 /*--------------------------------------------------------------------*/
 void GeneratorBase::set(uint32_t frequency)
 {
@@ -79,6 +80,29 @@ void SinGenerator::exec(q15_t* ptr, uint16_t samples)
       q15_t val = arm_sin_q15(m_theta);
       ptr = update_sample(ptr,val);
     }
+}
+
+/*--------------------------------------------------------------------*/
+void SinGenerator::multi(q15_t* ptr, uint16_t samples)
+{
+  for (int i = 0; i < samples ; i++)
+    {
+
+      *ptr = *ptr - ((*ptr)*((uint32_t)(0x8000 + arm_sin_q15(m_theta)) >> m_fraction)/0xffff);
+
+      if (m_channels < 2)
+        {
+          *(ptr+1) = *ptr;
+        }
+      m_theta = (m_theta + m_omega) & 0x7fff;
+      ptr  += (m_channels < 2) ? 2 : m_channels;
+    }
+}
+
+/*--------------------------------------------------------------------*/
+void SinGenerator::coeff(uint8_t coeff)
+{
+  m_fraction = coeff;
 }
 
 /*--------------------------------------------------------------------*/
@@ -364,6 +388,13 @@ void Oscillator::init(Wien2::Apu::Wien2ApuCmd *cmd)
                       cmd->init_osc_cmd.env.decay,
                       cmd->init_osc_cmd.env.sustain,
                       cmd->init_osc_cmd.env.release);
+
+      m_lfo[i].init(m_bit_length,
+                    m_sampling_rate,
+                    m_channel_num);
+
+      m_enable_lfo[i] = false;
+
     }
 
   m_state = Ready;
@@ -399,6 +430,11 @@ void Oscillator::exec(Wien2::Apu::Wien2ApuCmd *cmd)
           default:
             m_sin[i].exec((ptr + i), samples);
             break;
+        }
+
+      if(m_enable_lfo[i] == true)
+        {
+          m_lfo[i].multi((ptr + i), samples);
         }
 
       m_envlop[i].exec((ptr + i), samples);
@@ -448,5 +484,35 @@ void Oscillator::set(Wien2::Apu::Wien2ApuCmd *cmd)
         }
     }
 
+  if (type & Wien2::Apu::OscTypeLfo)
+    {
+      if(cmd->setparam_osc_cmd.lfo.frequency == 0)
+        {
+          m_enable_lfo[ch] = false;
+        }
+      m_enable_lfo[ch] = true;
+      m_lfo[ch].coeff(coeff);
+      m_lfo[ch].set(frequency)
+    }
+
   cmd->result.exec_result = Wien2::Apu::ApuExecOK;
+}
+
+/*--------------------------------------------------------------------*/
+bool Oscillator::lfo(uint8_t ch, uint16_t frequency, uint8_t coeff)
+{
+  if(ch>=m_channel_num) return false;
+
+  if(frequency == 0)
+    {
+      m_enable_lfo[ch] = false;
+      return true;
+    }
+
+  m_enable_lfo[ch] = true;
+  m_lfo[ch].coeff(coeff);
+  m_lfo[ch].set(frequency);
+
+  return true;
+
 }

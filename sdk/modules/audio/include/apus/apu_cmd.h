@@ -208,6 +208,7 @@ enum SetOscCmdType
   OscTypeFrequency = 1, /* 0000 0001 */
   OscTypeEnvelope  = 2, /* 0000 0010 */
   OscTypeWave      = 4, /* 0000 0100 */
+  OscTypeLfo       = 8  /* 0000 1000 */
 };
 
 struct SetOscCmdEnv
@@ -216,6 +217,12 @@ struct SetOscCmdEnv
   uint16_t      decay;           /**< Decay of data */
   uint16_t      sustain;         /**< Sustain of data */
   uint16_t      release;         /**< Release of data */
+};
+
+struct SetOscCmdLfo
+{
+  uint16_t      coeff;           /**< Attack of data */
+  uint16_t      frequency;       /**< Decay of data */
 };
 
 typedef int32_t SetOscCmdFreq;
@@ -227,6 +234,7 @@ struct ApuInitOscCmd
   uint8_t       bit_length;      /**< Bit length of data */
   uint32_t      sampling_rate;   /**< Sampling rate of data */
   SetOscCmdEnv  env;
+  SetOscCmdLfo  lfo;
   DebugDumpInfo debug_dump_info; /**< Debug dump information */
 };
 

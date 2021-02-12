@@ -1067,3 +1067,28 @@ bool AS_SetEnvelopeMediaSynthesizer(FAR AsSetSynthesizer *set_param)
 
   return true;
 }
+
+/* ------------------------------------------------------------------------ */
+bool AS_SetLfoMediaSynthesizer(FAR AsSetSynthesizer *set_param)
+{
+  /* Set envelope */
+
+  SynthesizerObject *obj = SynthesizerObject::get_instance();
+  if (obj == NULL)
+    {
+      return false;
+    }
+
+  SynthesizerCommand cmd;
+
+  cmd.set_param.channel_no    = set_param->channel_no;
+  cmd.set_param.type          = Apu::OscTypeLfo;
+  cmd.set_param.lfo.coeff     = set_param->coeff;
+  cmd.set_param.lfo.frequency = set_param->frequency;
+
+  err_t er = obj->send(MSG_AUD_SYN_CMD_SET, cmd);
+
+  F_ASSERT(er == ERR_OK);
+
+  return true;
+}

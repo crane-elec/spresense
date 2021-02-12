@@ -132,6 +132,10 @@ static void app_main_process(void)
                                OSC_EFFECT_SUSTAIN,
                                OSC_EFFECT_RELEASE);
 
+  app_set_lfo_synthesizer(0,
+                          2,
+                          2);
+
   printf("Running...\n");
 
   for (; p_node->fs[0] != M_END; p_node++)

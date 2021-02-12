@@ -275,6 +275,9 @@ typedef struct
 
   uint16_t              release;
 
+  uint32_t              lfo_frequency;
+  uint8_t               lfo_coeff;
+
 } AsSetSynthesizer;
 
 /** Message queue ID parameter of activate function */
@@ -414,6 +417,15 @@ bool AS_SetFrequencyMediaSynthesizer(FAR AsSetSynthesizer *set_param);
  */
 
 bool AS_SetEnvelopeMediaSynthesizer(FAR AsSetSynthesizer *set_param);
+
+/**
+ * @brief Deactivate audio synthesizer
+ *
+ * @retval     true  : success
+ * @retval     false : failure
+ */
+
+bool AS_SetLfoMediaSynthesizer(FAR AsSetSynthesizer *set_param);
 
 /**
  * @brief Deactivate audio synthesizer

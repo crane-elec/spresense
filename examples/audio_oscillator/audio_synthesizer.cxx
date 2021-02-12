@@ -309,3 +309,19 @@ bool app_set_envelope_synthesizer(uint8_t  channel_no,
 
   return RECEIVE_OBJECT_REPLY();
 }
+
+/* ------------------------------------------------------------------------ */
+bool app_set_lfo_synthesizer(uint8_t  channel_no,
+                             uint32_t frequency,
+                             uint8_t  coeff)
+{
+  AsSetSynthesizer set_param;
+
+  set_param.channel_no     = channel_no;
+  set_param.lfo_frequency  = frequency;
+  set_param.lfo_coeff      = coeff;
+
+  AS_SetLfoMediaSynthesizer(&set_param);
+
+  return RECEIVE_OBJECT_REPLY();
+}

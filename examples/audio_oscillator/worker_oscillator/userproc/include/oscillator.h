@@ -61,12 +61,15 @@ protected:
   q15_t     m_theta;
   q15_t     m_omega;
   uint8_t   m_channels;
+  uint8_t   m_fraction;
 };
 
 class SinGenerator : public GeneratorBase
 {
 public:
   void exec(q15_t*, uint16_t);
+  void multi(q15_t*, uint16_t);
+  void coeff(uint8_t);
 };
 
 class RectGenerator : public GeneratorBase
@@ -161,6 +164,9 @@ private:
   RectGenerator  m_rect[MAX_CHANNEL_NUMBER];
   SawGenerator   m_saw[MAX_CHANNEL_NUMBER];
   EnvelopeGenerator m_envlop[MAX_CHANNEL_NUMBER];
+
+  bool           m_enable_lfo[ch];
+  SinGenerator   m_lfo[MAX_CHANNEL_NUMBER];
 
   enum OscState
   {
