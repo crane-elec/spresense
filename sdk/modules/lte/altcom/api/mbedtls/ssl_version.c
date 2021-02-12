@@ -13,9 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name NuttX nor Sony nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+ *    the names of its contributors may be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -86,8 +87,7 @@ static const char* ssl_tls_ver_tbl[]
   DTLS_V_1_0,
   DTLS_V_1_2,
   TLS_UNKNOWN,
-  DTLS_UNKNOWN,
-  NULL
+  DTLS_UNKNOWN
 };
 
 /****************************************************************************
@@ -97,8 +97,9 @@ static const char* ssl_tls_ver_tbl[]
 static const char *get_ssl_tls_version(const int8_t *ver_name)
 {
   int i = 0;
+  int size = sizeof(ssl_tls_ver_tbl) / sizeof(ssl_tls_ver_tbl[0]);
 
-  for (i = 0; ssl_tls_ver_tbl[i] != NULL; i++)
+  for (i = 0; i < size; i++)
     {
       if (strcmp((const char*) ver_name, ssl_tls_ver_tbl[i]) == 0)
         {

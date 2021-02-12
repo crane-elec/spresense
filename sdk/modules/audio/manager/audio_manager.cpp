@@ -35,11 +35,7 @@
 
 #include "memutils/common_utils/common_types.h"
 #include "audio_manager.h"
-#ifdef AS_FEATURE_RECOGNIZER_ENABLE
-#include "objects/sound_recognizer/voice_recognition_object.h"
-#endif
 #include "memutils/os_utils/chateau_osal.h"
-#include <arch/chip/cxd56_audio.h>
 #include "debug/dbg_log.h"
 
 #define DBG_MODULE DBG_MODULE_AS
@@ -83,13 +79,19 @@ static void proc_outputmixer_reply(AsOutputMixerHandle handle,
   uint8_t cmd_code[] =
   {
     AUDCMD_SETPLAYERSTATUS,
+    AUDCMD_INIT_OUTPUTMIXER,
     AUDCMD_SETREADYSTATUS,
     AUDCMD_CLKRECOVERY,
     AUDCMD_INITMPP,
     AUDCMD_SETMPPPARAM,
   };
 
-  AudioMngCmdCmpltResult cmplt(0, 0, AS_ECODE_OK, AS_MODULE_ID_OUTPUT_MIX_OBJ, 0);
+  AudioMngCmdCmpltResult cmplt(0,
+                               0,
+                               done_param->ecode,
+                               AS_MODULE_ID_OUTPUT_MIX_OBJ,
+                               0,
+                               handle);
 
   cmplt.command_code = cmd_code[done_param->done_type];
 
@@ -253,7 +255,6 @@ static cxd56_audio_sel_t conv_path_sel(uint8_t in_path, uint8_t out_path)
 
     case AS_THROUGH_PATH_IN_I2S2:
       {
-        sel_info.au_dat_sel1 = true;
         if (AS_THROUGH_PATH_OUT_MIXER1 == out_path)
           {
             sel_info.cod_insel2  = true;
@@ -292,18 +293,7 @@ static cxd56_audio_sel_t conv_path_sel(uint8_t in_path, uint8_t out_path)
 
 static bool micfrontend_done_callback(AsMicFrontendEvent event, uint32_t result, uint32_t sub_result)
 {
-  uint8_t cmd_code[] =
-  {
-    AUDCMD_SETRECORDERSTATUS,
-    AUDCMD_SETREADYSTATUS,
-    AUDCMD_INITREC,
-    AUDCMD_STARTREC,
-    AUDCMD_STOPREC,
-    AUDCMD_INITMFE,
-    AUDCMD_SETMFE,
-  };
-
-  AudioMngCmdCmpltResult cmplt(cmd_code[event],
+  AudioMngCmdCmpltResult cmplt(event,
                                0,
                                result,
                                AS_MODULE_ID_MIC_FRONTEND_OBJ,
@@ -334,7 +324,7 @@ static bool recorder_done_callback(AsRecorderEvent event, uint32_t result, uint3
     AUDCMD_SETREADYSTATUS,
     AUDCMD_INITREC,
     AUDCMD_STARTREC,
-    0,
+    0, /* Exec is used internally. It isn't return to AudioMangaer.*/
     AUDCMD_STOPREC,
   };
 
@@ -354,6 +344,40 @@ static bool recorder_done_callback(AsRecorderEvent event, uint32_t result, uint3
   return true;
 }
 #endif /* AS_FEATURE_RECORDER_ENABLE */
+
+#ifdef AS_FEATURE_RECOGNIZER_ENABLE
+/*
+ * Callback functions from Recognizer 
+ */
+
+/*--------------------------------------------------------------------------*/
+static void recognizer_done_callback(RecognizerResult *result_param)
+{
+  AudioMngCmdCmpltResult cmplt(result_param->header.event,
+                               0,
+                               result_param->header.result_code,
+                               AS_MODULE_ID_RECOGNITION_OBJ,
+                               0);
+
+  err_t er = MsgLib::send<AudioMngCmdCmpltResult>(s_selfMid,
+                                                  MsgPriNormal,
+                                                  MSG_TYPE_AUD_RES,
+                                                  s_selfMid,
+                                                  cmplt);
+  F_ASSERT(ERR_OK == er);
+}
+
+/*--------------------------------------------------------------------------*/
+static void recognizer_notify_callback(AsRecognitionInfo info)
+{
+  err_t er = MsgLib::send<AsRecognitionInfo>(s_selfMid,
+                                             MsgPriNormal,
+                                             MSG_AUD_MGR_FIND_COMMAND,
+                                             s_selfMid,
+                                             info);
+  F_ASSERT(ERR_OK == er);
+}
+#endif /* AS_FEATURE_RECOGNIZER_ENABLE */
 
 /*
  * External Interface.
@@ -380,10 +404,6 @@ int AS_SendAudioCommand(FAR AudioCommand *packet)
 
       case AUDCMD_SETMICMAP:
         msg_type = MSG_AUD_MGR_CMD_SETMICMAP;
-        break;
-
-      case AUDCMD_INITI2SPARAM:
-        msg_type = MSG_AUD_MGR_CMD_INITI2SPARAM;
         break;
 
       case AUDCMD_INITDEQPARAM:
@@ -434,6 +454,7 @@ int AS_SendAudioCommand(FAR AudioCommand *packet)
         msg_type = MSG_AUD_MGR_CMD_PLAYER;
         break;
 
+      case AUDCMD_INIT_OUTPUTMIXER:
       case AUDCMD_CLKRECOVERY:
       case AUDCMD_INITMPP:
       case AUDCMD_SETMPPPARAM:
@@ -442,9 +463,9 @@ int AS_SendAudioCommand(FAR AudioCommand *packet)
 
 #endif  /* AS_FEATURE_PLAYER_ENABLE */
 #ifdef AS_FEATURE_FRONTEND_ENABLE
-      case AUDCMD_SETMFETYPE:
-      case AUDCMD_INITMFE:
-      case AUDCMD_SETMFE:
+      case AUDCMD_INIT_MICFRONTEND:
+      case AUDCMD_INIT_PREPROCESS_DSP:
+      case AUDCMD_SET_PREPROCESS_DSP:
         msg_type = MSG_AUD_MGR_CMD_MFE;
         break;
 
@@ -458,9 +479,12 @@ int AS_SendAudioCommand(FAR AudioCommand *packet)
 
 #endif  /* AS_FEATURE_RECORDER_ENABLE */
 #ifdef AS_FEATURE_RECOGNIZER_ENABLE
-      case AUDCMD_STARTVOICECOMMAND:
-      case AUDCMD_STOPVOICECOMMAND:
-        msg_type = MSG_AUD_MGR_CMD_VOICECOMMAND;
+      case AUDCMD_START_RECOGNIZER:
+      case AUDCMD_STOP_RECOGNIZER:
+      case AUDCMD_INIT_RECOGNIZER:
+      case AUDCMD_INIT_RECOGNIZER_DSP:
+      case AUDCMD_SET_RECOGNIZER_DSP:
+        msg_type = MSG_AUD_MGR_CMD_RECOGNIZER;
         break;
 
 #endif  /* AS_FEATURE_RECOGNIZER_ENABLE */
@@ -476,10 +500,6 @@ int AS_SendAudioCommand(FAR AudioCommand *packet)
         msg_type = MSG_AUD_MGR_CMD_SETREADY;
         break;
 
-      case AUDCMD_SETBASEBANDSTATUS:
-        msg_type = MSG_AUD_MGR_CMD_SETBASEBAND;
-        break;
-
       case AUDCMD_SETPLAYERSTATUS:
       case AUDCMD_SETPLAYERSTATUSPOST:
         msg_type = MSG_AUD_MGR_CMD_SETPLAYER;
@@ -487,6 +507,10 @@ int AS_SendAudioCommand(FAR AudioCommand *packet)
 
       case AUDCMD_SETRECORDERSTATUS:
         msg_type = MSG_AUD_MGR_CMD_SETRECORDER;
+        break;
+
+      case AUDCMD_SETRECOGNIZERSTATUS:
+        msg_type = MSG_AUD_MGR_CMD_SETRECOGNIZER;
         break;
 
       case AUDCMD_SETTHROUGHSTATUS:
@@ -512,16 +536,15 @@ int AS_SendAudioCommand(FAR AudioCommand *packet)
   return AS_ERR_CODE_OK;
 }
 
-static pid_t s_amng_pid = -1;
+static pthread_t s_amng_pid = INVALID_PROCESS_ID;
 
 #define AUDIO_TASK_PRIORITY 100
 #define AUDIO_TASK_MANAGER_STACK_SIZE (1024 * 2)
 
 /*--------------------------------------------------------------------------*/
-int AS_AudioManagerEntry(void)
+FAR void AS_AudioManagerEntry(FAR void *arg)
 {
   AudioManager::create(s_selfMid, s_plyMainMid, s_plySubMid, s_mixerMid, s_attention_cb, s_obs_attention_cb);
-  return 0;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -546,16 +569,34 @@ int AS_CreateAudioManager(AudioSubSystemIDs ids, AudioAttentionCb att_cb)
   F_ASSERT(err_code == ERR_OK);
   que->reset();
 
-  s_amng_pid = task_create("AMNG",
-                           AUDIO_TASK_PRIORITY,
-                           AUDIO_TASK_MANAGER_STACK_SIZE,
-                           (main_t)AS_AudioManagerEntry,
-                           0);
-  if (s_amng_pid < 0)
+  /* Init pthread attributes object. */
+
+  pthread_attr_t attr;
+
+  pthread_attr_init(&attr);
+
+  /* Set pthread scheduling parameter. */
+
+  struct sched_param sch_param;
+
+  sch_param.sched_priority = AUDIO_TASK_PRIORITY;
+  attr.stacksize           = AUDIO_TASK_MANAGER_STACK_SIZE;
+
+  pthread_attr_setschedparam(&attr, &sch_param);
+
+  /* Create thread. */
+
+  int ret = pthread_create(&s_amng_pid,
+                           &attr,
+                           (pthread_startroutine_t)AS_AudioManagerEntry,
+                           (pthread_addr_t)NULL);
+  if (ret < 0)
     {
       _err("ERROR AS_CreateAudioManager failed\n");
       return AS_ERR_CODE_TASK_CREATE;
     }
+
+  pthread_setname_np(s_amng_pid, "audio_manager");
 
   return AS_ERR_CODE_OK;
 }
@@ -588,16 +629,34 @@ int AS_CreateAudioManager(AudioSubSystemIDs ids, obs_AudioAttentionCb obs_att_cb
   F_ASSERT(err_code == ERR_OK);
   que->reset();
 
-  s_amng_pid = task_create("AMNG",
-                           AUDIO_TASK_PRIORITY,
-                           AUDIO_TASK_MANAGER_STACK_SIZE,
-                           (main_t)AS_AudioManagerEntry,
-                           0);
-  if (s_amng_pid < 0)
+  /* Init pthread attributes object. */
+
+  pthread_attr_t attr;
+
+  pthread_attr_init(&attr);
+
+  /* Set pthread scheduling parameter. */
+
+  struct sched_param sch_param;
+
+  sch_param.sched_priority = AUDIO_TASK_PRIORITY;
+  attr.stacksize           = AUDIO_TASK_MANAGER_STACK_SIZE;
+
+  pthread_attr_setschedparam(&attr, &sch_param);
+
+  /* Create thread. */
+
+  int ret = pthread_create(&s_amng_pid,
+                           &attr,
+                           (pthread_startroutine_t)AS_AudioManagerEntry,
+                           (pthread_addr_t)NULL);
+  if (ret < 0)
     {
       _err("ERROR AS_CreateAudioManager failed\n");
       return AS_ERR_CODE_TASK_CREATE;
     }
+
+  pthread_setname_np(s_amng_pid, "audio_manager");
 
   return AS_ERR_CODE_OK;
 }
@@ -605,13 +664,16 @@ int AS_CreateAudioManager(AudioSubSystemIDs ids, obs_AudioAttentionCb obs_att_cb
 /*--------------------------------------------------------------------------*/
 int AS_DeleteAudioManager(void)
 {
-  if (s_amng_pid < 0)
+  if (s_amng_pid == INVALID_PROCESS_ID)
     {
       MANAGER_ERR(AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
       return AS_ERR_CODE_ILLEGAL_STATE;
     }
 
-  task_delete(s_amng_pid);
+  pthread_cancel(s_amng_pid);
+  pthread_join(s_amng_pid, NULL);
+
+  s_amng_pid = INVALID_PROCESS_ID;
 
   if (s_mng != NULL)
     {
@@ -654,6 +716,58 @@ int AS_ReceiveAudioResult(FAR AudioResult *packet)
   F_ASSERT(err_code == ERR_OK);
 
   return AS_ERR_CODE_OK;
+}
+
+/*--------------------------------------------------------------------------*/
+int AS_ReceiveAudioResult(FAR AudioResult *packet, uint8_t id, uint32_t tmo)
+{
+  int             ret = AS_ERR_CODE_OK;
+
+  AS_ReceiveAudioResult(packet);
+
+  do
+    {
+      /* Wait until the specified PlayerId comes */
+
+      err_t            err_code;
+      FAR MsgQueBlock *que;
+      FAR MsgPacket   *msg;
+
+      err_code = MsgLib::referMsgQueBlock(s_appMid, &que);
+      F_ASSERT(err_code == ERR_OK);
+
+      if (packet->header.instance_id == id)
+        {
+          break;
+        }
+
+      err_code = que->recv(tmo, &msg);
+
+      err_t er = MsgLib::send<AudioResult>(s_appMid,
+                                           MsgPriNormal,
+                                           MSG_AUD_MGR_RST,
+                                           s_appMid,
+                                          *packet);
+      F_ASSERT(er == ERR_OK);
+
+      if (err_code == ERR_SEM_TAKE)
+        {
+          ret = AS_ERR_CODE_ILLEGAL_STATE;
+          break;
+        }
+
+      F_ASSERT(err_code == ERR_OK);
+      F_ASSERT(msg->getType() == MSG_AUD_MGR_RST);
+
+      *packet = msg->moveParam<AudioResult>();
+
+      err_code = que->pop();
+
+      F_ASSERT(err_code == ERR_OK);
+    }
+  while(1);
+
+  return ret;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -725,6 +839,8 @@ AudioManager::MsgProc
     &AudioManager::player,             /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -741,6 +857,8 @@ AudioManager::MsgProc
     &AudioManager::setRdyOnPlay,       /*   PlayerPause state.     */
     &AudioManager::setRdyOnRecorder,   /*   RecorderReady state.   */
     &AudioManager::setRdyOnRecorder,   /*   RecorderActive state.  */
+    &AudioManager::setRdyOnRecognizer, /*   RecognizerReady state. */
+    &AudioManager::setRdyOnRecognizer, /*   RecognizerActive state.*/
     &AudioManager::setRdyOnAct,        /*   BasebandReady state.   */
     &AudioManager::setRdyOnAct,        /*   BasebandActive state.  */
     &AudioManager::setRdyOnAct,        /*   WaitCommandWord state. */
@@ -757,6 +875,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -773,6 +893,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -780,7 +902,25 @@ AudioManager::MsgProc
     &AudioManager::illegal             /*   Through state.         */
   },
 
-  /* Voice command. */
+  /* SetRecognizer command. */
+
+  {                                    /* AudioManager all status: */
+    &AudioManager::setRecognizer,      /*   Ready state.           */
+    &AudioManager::illegal,            /*   PlayerReady state.     */
+    &AudioManager::illegal,            /*   PlayerActive state.    */
+    &AudioManager::illegal,            /*   PlayerPause state.     */
+    &AudioManager::illegal,            /*   RecorderReady state.   */
+    &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
+    &AudioManager::illegal,            /*   BasebandReady state.   */
+    &AudioManager::illegal,            /*   BasebandActive state.  */
+    &AudioManager::illegal,            /*   WaitCommandWord state. */
+    &AudioManager::illegal,            /*   PowerOff state.        */
+    &AudioManager::illegal             /*   Through state.         */
+  },
+
+  /* Recognizer command. */
 
   {                                    /* AudioManager all status: */
     &AudioManager::illegal,            /*   Ready state.           */
@@ -789,9 +929,11 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
-    &AudioManager::voiceCommand,       /*   BasebandReady state.   */
-    &AudioManager::voiceCommand,       /*   BasebandActive state.  */
-    &AudioManager::voiceCommand,       /*   WaitCommandWord state. */
+    &AudioManager::recognizer,         /*   RecognizerReady state. */
+    &AudioManager::recognizer,         /*   RecognizerActive state.*/
+    &AudioManager::illegal,            /*   BasebandReady state.   */
+    &AudioManager::illegal,            /*   BasebandActive state.  */
+    &AudioManager::illegal,            /*   WaitCommandWord state. */
     &AudioManager::illegal,            /*   PowerOff state.        */
     &AudioManager::illegal             /*   Through state.         */
   },
@@ -805,6 +947,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -821,6 +965,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::recorder,           /*   RecorderReady state.   */
     &AudioManager::recorder,           /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -837,6 +983,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::soundFx,            /*   BasebandReady state.   */
     &AudioManager::soundFx,            /*   BasebandActive state.  */
     &AudioManager::soundFx,            /*   WaitCommandWord state. */
@@ -847,12 +995,14 @@ AudioManager::MsgProc
   /* MicFrontEnd command. */
 
   {                                    /* AudioManager all status: */
-    &AudioManager::micfrontend,        /*   Ready state.           */
+    &AudioManager::illegal,            /*   Ready state.           */
     &AudioManager::illegal,            /*   PlayerReady state.     */
     &AudioManager::illegal,            /*   PlayerActive state.    */
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::micfrontend,        /*   RecorderReady state.   */
     &AudioManager::micfrontend,        /*   RecorderActive state.  */
+    &AudioManager::micfrontend,        /*   RecognizerReady state. */
+    &AudioManager::micfrontend,        /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -869,6 +1019,8 @@ AudioManager::MsgProc
     &AudioManager::mpp,                /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::mpp,                /*   BasebandReady state.   */
     &AudioManager::mpp,                /*   BasebandActive state.  */
     &AudioManager::mpp,                /*   WaitCommandWord state. */
@@ -885,6 +1037,8 @@ AudioManager::MsgProc
     &AudioManager::getstatus,          /*   PlayerPause state.     */
     &AudioManager::getstatus,          /*   RecorderReady state.   */
     &AudioManager::getstatus,          /*   RecorderActive state.  */
+    &AudioManager::getstatus,          /*   RecognizerReady state. */
+    &AudioManager::getstatus,          /*   RecognizerActive state.*/
     &AudioManager::getstatus,          /*   BasebandReady state.   */
     &AudioManager::getstatus,          /*   BasebandActive state.  */
     &AudioManager::getstatus,          /*   WaitCommandWord state. */
@@ -901,6 +1055,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -917,27 +1073,13 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::setMicGain,         /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::setMicGain,         /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::setMicGain,         /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
     &AudioManager::setMicGain,         /*   PowerOff state.        */
     &AudioManager::setMicGain          /*   Through state.         */
-  },
-
-  /* InitI2SPARaram command. */
-
-  {                                    /* AudioManager all status: */
-    &AudioManager::setI2SParam,        /*   Ready state.           */
-    &AudioManager::setI2SParam,        /*   PlayerReady state.     */
-    &AudioManager::illegal,            /*   PlayerActive state.    */
-    &AudioManager::illegal,            /*   PlayerPause state.     */
-    &AudioManager::setI2SParam,        /*   RecorderReady state.   */
-    &AudioManager::illegal,            /*   RecorderActive state.  */
-    &AudioManager::setI2SParam,        /*   BasebandReady state.   */
-    &AudioManager::illegal,            /*   BasebandActive state.  */
-    &AudioManager::illegal,            /*   WaitCommandWord state. */
-    &AudioManager::initI2SParam,       /*   PowerOff state.        */
-    &AudioManager::setI2SParam         /*   Through state.         */
   },
 
   /* InitDEQParam command. */
@@ -949,6 +1091,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::initDEQParam,       /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::initDEQParam,       /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::initDEQParam,       /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -965,6 +1109,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::setOutputSelect,    /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::setOutputSelect,    /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::setOutputSelect,    /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -981,6 +1127,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::initDNCParam,       /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::initDNCParam,       /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::initDNCParam,       /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -997,6 +1145,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::setClearStereo,     /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::setClearStereo,     /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::setClearStereo,     /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1013,6 +1163,8 @@ AudioManager::MsgProc
     &AudioManager::setVolume,          /*   PlayerPause state.     */
     &AudioManager::setVolume,          /*   RecorderReady state.   */
     &AudioManager::setVolume,          /*   RecorderActive state.  */
+    &AudioManager::setVolume,          /*   RecognizerReady state. */
+    &AudioManager::setVolume,          /*   RecognizerActive state.*/
     &AudioManager::setVolume,          /*   BasebandReady state.   */
     &AudioManager::setVolume,          /*   BasebandActive state.  */
     &AudioManager::setVolume,          /*   WaitCommandWord state. */
@@ -1029,6 +1181,8 @@ AudioManager::MsgProc
     &AudioManager::setVolumeMute,      /*   PlayerPause state.     */
     &AudioManager::setVolumeMute,      /*   RecorderReady state.   */
     &AudioManager::setVolumeMute,      /*   RecorderActive state.  */
+    &AudioManager::setVolumeMute,      /*   RecognizerReady state. */
+    &AudioManager::setVolumeMute,      /*   RecognizerActive state.*/
     &AudioManager::setVolumeMute,      /*   BasebandReady state.   */
     &AudioManager::setVolumeMute,      /*   BasebandActive state.  */
     &AudioManager::setVolumeMute,      /*   WaitCommandWord state. */
@@ -1045,6 +1199,8 @@ AudioManager::MsgProc
     &AudioManager::setBeep,            /*   PlayerPause state.     */
     &AudioManager::setBeep,            /*   RecorderReady state.   */
     &AudioManager::setBeep,            /*   RecorderActive state.  */
+    &AudioManager::setBeep,            /*   RecognizerReady state. */
+    &AudioManager::setBeep,            /*   RecognizerActive state.*/
     &AudioManager::setBeep,            /*   BasebandReady state.   */
     &AudioManager::setBeep,            /*   BasebandActive state.  */
     &AudioManager::setBeep,            /*   WaitCommandWord state. */
@@ -1061,6 +1217,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1077,6 +1235,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1093,6 +1253,8 @@ AudioManager::MsgProc
     &AudioManager::outputmixer,        /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1109,6 +1271,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1125,6 +1289,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1141,6 +1307,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1157,6 +1325,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1173,6 +1343,8 @@ AudioManager::MsgProc
     &AudioManager::illegal,            /*   PlayerPause state.     */
     &AudioManager::illegal,            /*   RecorderReady state.   */
     &AudioManager::illegal,            /*   RecorderActive state.  */
+    &AudioManager::illegal,            /*   RecognizerReady state. */
+    &AudioManager::illegal,            /*   RecognizerActive state.*/
     &AudioManager::illegal,            /*   BasebandReady state.   */
     &AudioManager::illegal,            /*   BasebandActive state.  */
     &AudioManager::illegal,            /*   WaitCommandWord state. */
@@ -1190,6 +1362,7 @@ AudioManager::RstProc AudioManager::RstProcTbl[1][AS_MNG_STATUS_NUM] =
     &AudioManager::cmpltOnSoundFx,   /*   Baseband state.    */
     &AudioManager::cmpltOnPlayer,    /*   Player state.      */
     &AudioManager::cmpltOnRecorder,  /*   Recorder state.    */
+    &AudioManager::cmpltOnRecognizer,/*   Recognizer state   */
     &AudioManager::cmpltOnPowerOff   /*   PowerOff state.    */
   },
 };
@@ -1217,7 +1390,7 @@ void AudioManager::parse(FAR MsgPacket *msg, FAR MsgQueBlock *que)
 
       if (msg->getType() == MSG_AUD_MGR_RST)
         {
-          uint event = MSG_GET_SUBTYPE(msg->getType());
+          int event = MSG_GET_SUBTYPE(msg->getType());
           const AudioMngCmdCmpltResult rst = msg->moveParam<AudioMngCmdCmpltResult>();
           err_code = que->pop();
           F_ASSERT(err_code == ERR_OK);
@@ -1229,16 +1402,21 @@ void AudioManager::parse(FAR MsgPacket *msg, FAR MsgQueBlock *que)
           err_code = que->pop();
           F_ASSERT(err_code == ERR_OK);
           execAttentions(info);
-#ifdef AS_FEATURE_RECOGNIZER_ENABLE
         }
+#ifdef AS_FEATURE_RECOGNIZER_ENABLE
       else if (msg->getType() == MSG_AUD_MGR_FIND_COMMAND)
         {
-          const AudioFindCommandInfo& info =
-            msg->peekParam<AudioFindCommandInfo>();
-          execFindCommandCallback(info.keyword, info.status);
-          msg->popParam<AudioFindCommandInfo>();
-#endif  /* AS_FEATURE_RECOGNIZER_ENABLE */
+          const AsRecognitionInfo info =
+            msg->moveParam<AsRecognitionInfo>();
+          err_code = que->pop();
+          F_ASSERT(err_code == ERR_OK);
+
+          if (m_rcgfind_cb != NULL)
+            {
+              m_rcgfind_cb(info);
+            }
         }
+#endif  /* AS_FEATURE_RECOGNIZER_ENABLE */
     }
 }
 
@@ -1273,8 +1451,7 @@ void AudioManager::getstatus(AudioCommand &cmd)
 
   packet.notify_status.status_info     = m_State;
   packet.notify_status.sub_status_info = m_SubState;
-  packet.notify_status.vad_status      =
-    ((m_SubState == AS_MNG_SUB_STATUS_WAITCMDWORD) ? m_VadState : 0);
+  packet.notify_status.vad_status      = 0;
 
   err_t er = MsgLib::send<AudioResult>(s_appMid,
                                        MsgPriNormal,
@@ -1317,11 +1494,10 @@ void AudioManager::powerOn(AudioCommand &cmd)
       return;
     }
 
-  m_command_code = 0;
-      m_State    = AS_MNG_STATUS_READY;
-      m_SubState = AS_MNG_SUB_STATUS_NONE;
-      sendResult(AUDRLT_STATUSCHANGED);
-    }
+  m_State    = AS_MNG_STATUS_READY;
+  m_SubState = AS_MNG_SUB_STATUS_NONE;
+  sendResult(AUDRLT_STATUSCHANGED);
+}
 
 /*--------------------------------------------------------------------------*/
 void AudioManager::powerOff(AudioCommand &cmd)
@@ -1506,6 +1682,7 @@ void AudioManager::player(AudioCommand &cmd)
                         AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
       return;
     }
+  m_req_player_reference_bits[cmd.player.player_id] |= (1 << ElementPlayer);
 #else
   sendErrRespResult(cmd.header.sub_code,
                     AS_MODULE_ID_AUDIO_MANAGER,
@@ -1519,10 +1696,27 @@ void AudioManager::outputmixer(AudioCommand &cmd)
 #ifdef AS_FEATURE_OUTPUTMIX_ENABLE
   MSG_TYPE msg_type = MSG_AUD_MIX_CMD_CLKRECOVERY;
   bool check = false;
-  OutputMixerCommand omix_cmd;
+  OutputMixerCommand omix_cmd = {0};
 
   switch (cmd.header.command_code)
     {
+      case AUDCMD_INIT_OUTPUTMIXER:
+        check = packetCheck(LENGTH_INIT_OUTPUTMIXER, AUDCMD_INIT_OUTPUTMIXER, cmd);
+        if (!check)
+          {
+            return;
+          }
+
+        omix_cmd.handle =
+          (cmd.init_mixer_param.player_id == AS_PLAYER_ID_0) ?
+            OutputMixer0 : OutputMixer1;
+        omix_cmd.init_param.postproc_type = cmd.init_mixer_param.postproc_type;
+        memcpy(omix_cmd.init_param.dsp_path,
+               cmd.init_mixer_param.dsp_path,
+               sizeof(omix_cmd.init_param.dsp_path));
+        msg_type = MSG_AUD_MIX_CMD_INIT;
+        break;
+
       case AUDCMD_CLKRECOVERY:
         check = packetCheck(LENGTH_CLK_RECOVERY, AUDCMD_CLKRECOVERY, cmd);
         if (!check)
@@ -1573,6 +1767,9 @@ void AudioManager::outputmixer(AudioCommand &cmd)
         break;
 
       default:
+        sendErrRespResult(cmd.header.sub_code,
+                          AS_MODULE_ID_OUTPUT_MIX_OBJ,
+                          AS_ECODE_COMMAND_CODE_ERROR);
         break;
     }
 
@@ -1582,6 +1779,15 @@ void AudioManager::outputmixer(AudioCommand &cmd)
                         AS_MODULE_ID_OUTPUT_MIX_OBJ,
                         AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
       return;
+    }
+
+  if (omix_cmd.handle == OutputMixer0)
+    {
+      m_req_player_reference_bits[AS_PLAYER_ID_0] |= (1 << ElementOutmixer);
+    }
+  else
+    {
+      m_req_player_reference_bits[AS_PLAYER_ID_1] |= (1 << ElementOutmixer);
     }
 #else
   sendErrRespResult(cmd.header.sub_code,
@@ -1594,40 +1800,58 @@ void AudioManager::outputmixer(AudioCommand &cmd)
 void AudioManager::micfrontend(AudioCommand &cmd)
 {
 #ifdef AS_FEATURE_FRONTEND_ENABLE
-  MicFrontendCommand frontend_command;
+  MicFrontendCommand frontend_command = { 0 };
   MSG_TYPE msg_type;
   bool check = false;
 
   switch (cmd.header.command_code)
     {
-      case AUDCMD_SETMFETYPE:
-        check = packetCheck(LENGTH_INITMFE, AUDCMD_SETMFETYPE, cmd);
+      case AUDCMD_INIT_MICFRONTEND:
+        check = packetCheck(LENGTH_INIT_MICFRONTEND, AUDCMD_INIT_MICFRONTEND, cmd);
         if (!check)
           {
             return;
           }
-        m_preproc_type = cmd.set_mfetype_param.preproc_type; 
-        sendResult(AUDRLT_ENPREPROCCMPLT);
-        return;
+        frontend_command.init_param.channel_number = cmd.init_micfrontend_param.ch_num;
+        frontend_command.init_param.bit_length = cmd.init_micfrontend_param.bit_length;
+        frontend_command.init_param.samples_per_frame = cmd.init_micfrontend_param.samples;
+        frontend_command.init_param.out_fs = cmd.init_micfrontend_param.out_fs;
+        frontend_command.init_param.preproc_type = cmd.init_micfrontend_param.preproc_type;
+        snprintf(frontend_command.init_param.dsp_path,
+                 sizeof(frontend_command.init_param.dsp_path),
+                 "%s", cmd.init_micfrontend_param.preprocess_dsp_path);
+        frontend_command.init_param.data_path = AsDataPathMessage;
+        if (cmd.init_micfrontend_param.data_dest == AsMicFrontendDataToRecorder)
+          {
+            frontend_command.init_param.dest.msg.msgqid  = s_rcdMid;
+            frontend_command.init_param.dest.msg.msgtype = MSG_AUD_MRC_CMD_ENCODE;
+          }
+        else
+          {
+            frontend_command.init_param.dest.msg.msgqid  = s_rcgMid;
+            frontend_command.init_param.dest.msg.msgtype = MSG_AUD_RCG_EXEC;
+          }
+        msg_type = MSG_AUD_MFE_CMD_INIT;
+        break;
 
-      case AUDCMD_INITMFE:
-        check = packetCheck(LENGTH_INITMFE, AUDCMD_INITMFE, cmd);
+      case AUDCMD_INIT_PREPROCESS_DSP:
+        check = packetCheck(LENGTH_INIT_PREPROCESS_DSP, AUDCMD_INIT_PREPROCESS_DSP, cmd);
         if (!check)
           {
             return;
           }
         msg_type = MSG_AUD_MFE_CMD_INITPREPROC;
-        frontend_command.initpreproc_param = cmd.init_mfe_param.initpre_param;
+        frontend_command.initpreproc_param = cmd.init_preproc_param;
         break;
 
-      case AUDCMD_SETMFE:
-        check = packetCheck(LENGTH_SETMFE, AUDCMD_SETMFE, cmd);
+      case AUDCMD_SET_PREPROCESS_DSP:
+        check = packetCheck(LENGTH_SET_PREPROCESS_DSP, AUDCMD_SET_PREPROCESS_DSP, cmd);
         if (!check)
           {
             return;
           }
         msg_type = MSG_AUD_MFE_CMD_SETPREPROC;
-        frontend_command.setpreproc_param = cmd.set_mfe_param.setpre_param;
+        frontend_command.setpreproc_param = cmd.set_preproc_param;
         break;
 
       default:
@@ -1644,6 +1868,7 @@ void AudioManager::micfrontend(AudioCommand &cmd)
                         AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
       return;
     }
+  m_req_reference_bits |= (1 << ElementMicFrontend);
 #else
   sendErrRespResult(cmd.header.sub_code,
                     AS_MODULE_ID_AUDIO_MANAGER,
@@ -1671,21 +1896,8 @@ void AudioManager::recorder(AudioCommand &cmd)
           {
             return;
           }
-
-        /* Struct FrontendObject Init parameter */
-
-        frontend_command.init_param.channel_number    = cmd.recorder.init_param.channel_number;
-        frontend_command.init_param.bit_length        = cmd.recorder.init_param.bit_length;
-        frontend_command.init_param.samples_per_frame =
-          getCapSampleNumPerFrame(cmd.recorder.init_param.codec_type,
-                                  cmd.recorder.init_param.sampling_rate);
-        frontend_command.init_param.data_path         = AsDataPathMessage;
-        frontend_command.init_param.dest.msg.msgqid   = s_rcdMid;
-        frontend_command.init_param.dest.msg.msgtype  = MSG_AUD_MRC_CMD_ENCODE;
-
         rcd_msg_type = MSG_AUD_MRC_CMD_INIT;
-        fed_msg_type = MSG_AUD_MFE_CMD_INIT;
-        target = TargetRecorder | TargetFrontend;
+        target = TargetRecorder;
         break;
 
       case AUDCMD_STARTREC:
@@ -1728,13 +1940,7 @@ void AudioManager::recorder(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-
-      if ((fed_msg_type == MSG_AUD_MFE_CMD_INIT)
-       || (fed_msg_type == MSG_AUD_MFE_CMD_START)
-       || (fed_msg_type == MSG_AUD_MFE_CMD_STOP))
-        {
-          m_recorder_transition_count++;
-        }
+      m_req_reference_bits |= (1 << ElementMicFrontend);
     }
 
   if (target & TargetRecorder)
@@ -1746,13 +1952,7 @@ void AudioManager::recorder(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-
-      if ((rcd_msg_type == MSG_AUD_MRC_CMD_INIT)
-       || (rcd_msg_type == MSG_AUD_MRC_CMD_START)
-       || (rcd_msg_type == MSG_AUD_MRC_CMD_STOP))
-        {
-          m_recorder_transition_count++;
-        }
+      m_req_reference_bits |= (1 << ElementRecorder);
     }
 #else
   sendErrRespResult(cmd.header.sub_code,
@@ -1847,7 +2047,7 @@ void AudioManager::setRdyOnPlay(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-      m_player_transition_count++;
+      m_req_player_reference_bits[AS_PLAYER_ID_0] |= (1 << ElementPlayer);
 
       /* Deactivate OutputMixer */
 
@@ -1862,7 +2062,7 @@ void AudioManager::setRdyOnPlay(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-      m_player_transition_count++;
+      m_req_player_reference_bits[AS_PLAYER_ID_0] |= (1 << ElementOutmixer);
 
       m_active_player &= ~AS_ACTPLAYER_MAIN;
     }
@@ -1878,7 +2078,7 @@ void AudioManager::setRdyOnPlay(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-      m_player_transition_count++;
+      m_req_player_reference_bits[AS_PLAYER_ID_1] |= (1 << ElementPlayer);
 
       /* Deactivate OutputMixer */
 
@@ -1893,7 +2093,7 @@ void AudioManager::setRdyOnPlay(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-      m_player_transition_count++;
+      m_req_player_reference_bits[AS_PLAYER_ID_1] |= (1 << ElementOutmixer);
 
       m_active_player &= ~AS_ACTPLAYER_SUB;
     }
@@ -1926,7 +2126,7 @@ void AudioManager::setRdyOnRecorder(AudioCommand &cmd)
                         AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
       return;
     }
-  m_recorder_transition_count++;
+  m_req_reference_bits |= (1 << ElementMicFrontend);
 
   /* Deactivate MediaRecorder */
 
@@ -1938,12 +2138,56 @@ void AudioManager::setRdyOnRecorder(AudioCommand &cmd)
                         AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
       return;
     }
-  m_recorder_transition_count++;
+  m_req_reference_bits |= (1 << ElementRecorder);
 #else
   sendErrRespResult(cmd.header.sub_code,
                     AS_MODULE_ID_AUDIO_MANAGER,
                     AS_ECODE_COMMAND_NOT_SUPPOT);
 #endif /* AS_FEATURE_RECORDER_ENABLE */
+}
+
+/*--------------------------------------------------------------------------*/
+void AudioManager::setRdyOnRecognizer(AudioCommand &cmd)
+{
+#ifdef AS_FEATURE_RECOGNIZER_ENABLE
+  /* Before transfer to ready status, check parameters first. */
+
+  bool check =
+    packetCheck(LENGTH_SET_READY_STATUS, AUDCMD_SETREADYSTATUS, cmd);
+  if (!check)
+    {
+      return;
+    }
+
+  /* Deactivate Frontend */
+
+  MicFrontendCommand frontend_command;
+  if (!sendMicFrontendCommand(MSG_AUD_MFE_CMD_DEACT, &frontend_command))
+    {
+      sendErrRespResult(cmd.header.sub_code,
+                        AS_MODULE_ID_MIC_FRONTEND_OBJ,
+                        AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
+      return;
+    }
+  m_req_reference_bits |= (1 << ElementMicFrontend);
+
+  /* Deactivate Recognizer */
+
+  RecognizerCommand recognizer_command;
+  if (!sendRecognizerCommand(MSG_AUD_RCG_DEACT, &recognizer_command))
+    {
+      sendErrRespResult(cmd.header.sub_code,
+                        AS_MODULE_ID_RECOGNITION_OBJ,
+                        AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
+      return;
+    }
+  m_req_reference_bits |= (1 << ElementRecognizer);
+
+#else
+  sendErrRespResult(cmd.header.sub_code,
+                    AS_MODULE_ID_AUDIO_MANAGER,
+                    AS_ECODE_COMMAND_NOT_SUPPOT);
+#endif /* AS_FEATURE_RECOGNIZER_ENABLE */
 }
 
 /*--------------------------------------------------------------------------*/
@@ -2169,7 +2413,7 @@ void AudioManager::setPlayerStatus(AudioCommand &cmd)
                            AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
          return;
        }
-      m_player_transition_count++;
+      m_req_player_reference_bits[AS_PLAYER_ID_0] |= (1 << ElementPlayer);
 
       /* Activate OutputMixer */
 
@@ -2190,7 +2434,7 @@ void AudioManager::setPlayerStatus(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-      m_player_transition_count++;
+      m_req_player_reference_bits[AS_PLAYER_ID_0] |= (1 << ElementOutmixer);
     }
 
   if (m_active_player & AS_ACTPLAYER_SUB)
@@ -2209,7 +2453,7 @@ void AudioManager::setPlayerStatus(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-      m_player_transition_count++;
+      m_req_player_reference_bits[AS_PLAYER_ID_1] |= (1 << ElementPlayer);
 
       /* Activate OutputMixer */
 
@@ -2230,13 +2474,76 @@ void AudioManager::setPlayerStatus(AudioCommand &cmd)
                             AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
           return;
         }
-      m_player_transition_count++;
+      m_req_player_reference_bits[AS_PLAYER_ID_1] |= (1 << ElementOutmixer);
     }
 #else
   sendErrRespResult(cmd.header.sub_code,
                     AS_MODULE_ID_AUDIO_MANAGER,
                     AS_ECODE_COMMAND_NOT_SUPPOT);
 #endif /* AS_FEATURE_PLAYER_ENABLE */
+}
+
+/*--------------------------------------------------------------------------*/
+void AudioManager::setRecognizer(AudioCommand &cmd)
+{
+#ifdef AS_FEATURE_RECOGNIZER_ENABLE
+  /* Before state transition, check parameters first. */
+
+  bool check =
+    packetCheck(LENGTH_SET_RECOGNIZER_STATUS, AUDCMD_SETRECOGNIZERSTATUS, cmd);
+  if (!check)
+    {
+      return;
+    }
+
+  uint32_t rst = AS_ECODE_OK;
+
+  rst = powerOnBaseBand(BB_POWER_INPUT);
+  if (rst != AS_ECODE_OK)
+    {
+      sendErrRespResult(cmd.header.sub_code,
+                        AS_MODULE_ID_AUDIO_DRIVER,
+                        rst);
+      return;
+    }
+
+  /* Activate MicFrontend */
+
+  MicFrontendCommand frontend_command;
+
+  frontend_command.act_param.param.input_device =
+    cmd.set_recognizer_status_param.input_device;
+  frontend_command.act_param.cb                 = micfrontend_done_callback;
+
+  if (!sendMicFrontendCommand(MSG_AUD_MFE_CMD_ACT, &frontend_command))
+    {
+      sendErrRespResult(cmd.header.sub_code,
+                        AS_MODULE_ID_MIC_FRONTEND_OBJ,
+                        AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
+      return;
+    }
+  m_req_reference_bits |= (1 << ElementMicFrontend);
+
+  /* Activate Recognizer */
+
+  RecognizerCommand recognizer_command;
+
+  recognizer_command.act_param.cb = recognizer_done_callback;
+
+  if (!sendRecognizerCommand(MSG_AUD_RCG_ACT, &recognizer_command))
+    {
+      sendErrRespResult(cmd.header.sub_code,
+                        AS_MODULE_ID_RECOGNITION_OBJ,
+                        AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
+      return;
+    }
+  m_req_reference_bits |= (1 << ElementRecognizer);
+
+#else
+  sendErrRespResult(cmd.header.sub_code,
+                    AS_MODULE_ID_AUDIO_MANAGER,
+                    AS_ECODE_COMMAND_NOT_SUPPOT);
+#endif /* AS_FEATURE_RECOGNIZER_ENABLE */
 }
 
 /*--------------------------------------------------------------------------*/
@@ -2267,7 +2574,6 @@ void AudioManager::setRecorder(AudioCommand &cmd)
 
   switch (cmd.set_recorder_status_param.output_device)
     {
-      case AS_SETRECDR_STS_OUTPUTDEVICE_EMMC:
       case AS_SETRECDR_STS_OUTPUTDEVICE_RAM:
         break;
 
@@ -2296,7 +2602,6 @@ void AudioManager::setRecorder(AudioCommand &cmd)
 
   frontend_command.act_param.param.input_device =
     cmd.set_recorder_status_param.input_device;
-  frontend_command.act_param.param.preproc_type = m_preproc_type;
   frontend_command.act_param.cb                 = micfrontend_done_callback;
 
   if (!sendMicFrontendCommand(MSG_AUD_MFE_CMD_ACT, &frontend_command))
@@ -2307,7 +2612,7 @@ void AudioManager::setRecorder(AudioCommand &cmd)
       return;
     }
 
-  m_recorder_transition_count++;
+  m_req_reference_bits |= (1 << ElementMicFrontend);
 
   /* Activate MediaRecorder */ 
 
@@ -2324,7 +2629,7 @@ void AudioManager::setRecorder(AudioCommand &cmd)
       return;
     }
 
-  m_recorder_transition_count++;
+  m_req_reference_bits |= (1 << ElementRecorder);
 #else
   sendErrRespResult(cmd.header.sub_code,
                     AS_MODULE_ID_AUDIO_MANAGER,
@@ -2333,89 +2638,145 @@ void AudioManager::setRecorder(AudioCommand &cmd)
 }
 
 /*--------------------------------------------------------------------------*/
-void AudioManager::voiceCommand(AudioCommand &cmd)
+void AudioManager::recognizer(AudioCommand &cmd)
 {
 #ifdef AS_FEATURE_RECOGNIZER_ENABLE
-  bool check = false;
+  uint32_t target = 0;
+  const uint32_t TargetRecognizer = 0x01;
+  const uint32_t TargetFrontend = 0x02;
+  MSG_TYPE rcg_msg_type = 0;
+  MSG_TYPE fed_msg_type = 0;
+  MicFrontendCommand frontend_command = { 0 };
+  RecognizerCommand recognizer_command = { 0 };
 
   switch (cmd.header.command_code)
     {
-      case AUDCMD_STARTVOICECOMMAND:
-        check = packetCheck(LENGTH_START_VOICE_COMMAND,
-                            AUDCMD_STARTVOICECOMMAND,
-                            cmd);
-        if (!check)
+      case AUDCMD_INIT_RECOGNIZER:
+        if (!packetCheck(LENGTH_INIT_RECOGNIZER, AUDCMD_INIT_RECOGNIZER, cmd))
           {
             return;
           }
 
-        if (m_SubState != AS_MNG_SUB_STATUS_BASEBANDACTIVE)
+        if (cmd.init_recognizer.fcb == NULL)
           {
             sendErrRespResult(cmd.header.sub_code,
                               AS_MODULE_ID_AUDIO_MANAGER,
-                              AS_ECODE_STATE_VIOLATION);
+                              AS_ECODE_COMMAND_PARAM_CALLBACK);
             return;
           }
-        else
-          {
-            if (cmd.start_voice_command_param.callback_function == NULL)
-              {
-                sendErrRespResult(cmd.header.sub_code,
-                                  AS_MODULE_ID_AUDIO_MANAGER,
-                                  AS_ECODE_COMMAND_PARAM_CALLBACK);
-                return;
-              }
-            m_findCommandCBFunc =
-              cmd.start_voice_command_param.callback_function;
 
-            VoiceRecognitionCommandObject::CommandSetParam_t param;
-            param.key_word = cmd.start_voice_command_param.keyword;
-            param.vad_only = cmd.start_voice_command_param.vad_only;
-            param.p_vad_param = (uint8_t *)VADCoef_table;
-            err_t err =
-              MsgLib::send<VoiceRecognitionCommandObject::CommandSetParam_t>(
-                s_rcgMid,
-                MsgPriNormal,
-                MSG_AUD_RCG_START,
-                m_selfDtq,
-                param);
-            F_ASSERT(err == ERR_OK);
-          }
+        /* Init Recognizer */
+
+        recognizer_command.init_param.type        = cmd.init_recognizer.recognizer_type;
+        snprintf(recognizer_command.init_param.dsp_path,
+                 sizeof(recognizer_command.init_param.dsp_path),
+                 "%s", cmd.init_recognizer.recognizer_dsp_path);
+        recognizer_command.init_param.notify_path = AsNotifyPathCallback;
+        recognizer_command.init_param.dest.cb     = recognizer_notify_callback;
+        m_rcgfind_cb = cmd.init_recognizer.fcb;
+        rcg_msg_type = MSG_AUD_RCG_INIT;
+
+        target = TargetRecognizer;
+
         break;
 
-      case AUDCMD_STOPVOICECOMMAND:
-        {
-          check = packetCheck(LENGTH_STOP_VOICE_COMMAND,
-                              AUDCMD_STOPVOICECOMMAND,
-                              cmd);
-          if (!check)
-            {
-              return;
-            }
+      case AUDCMD_START_RECOGNIZER:
+        if (!packetCheck(LENGTH_START_RECOGNIZER, AUDCMD_START_RECOGNIZER, cmd))
+          {
+            return;
+          }
 
-          if (m_SubState != AS_MNG_SUB_STATUS_WAITCMDWORD)
-            {
-              sendErrRespResult(cmd.header.sub_code,
-                                AS_MODULE_ID_AUDIO_MANAGER,
-                                AS_ECODE_STATE_VIOLATION);
-              return;
-            }
+        /* Start MicFrontend */
 
-          err_t err = MsgLib::send(s_rcgMid,
-                                   MsgPriNormal,
-                                   MSG_AUD_RCG_STOP,
-                                   m_selfDtq);
-          F_ASSERT(err == ERR_OK);
-        }
+        fed_msg_type = MSG_AUD_MFE_CMD_START;
+
+        /* Start Recognizer */
+
+        rcg_msg_type = MSG_AUD_RCG_START;
+
+        target = TargetFrontend | TargetRecognizer;
+
+        break;
+
+      case AUDCMD_STOP_RECOGNIZER:
+        if (!packetCheck(LENGTH_STOP_RECOGNIZER, AUDCMD_STOP_RECOGNIZER, cmd))
+          {
+            return;
+          }
+
+        /* Stop MicFrontend */
+
+        fed_msg_type = MSG_AUD_MFE_CMD_STOP;
+
+        /* Stop Recognizer */
+
+        rcg_msg_type = MSG_AUD_RCG_STOP;
+
+        target = TargetFrontend | TargetRecognizer;
+
+        break;
+
+      case AUDCMD_INIT_RECOGNIZER_DSP:
+        if (!packetCheck(LENGTH_INIT_RECOGNIZER_DSP, AUDCMD_INIT_RECOGNIZER_DSP, cmd))
+          {
+            return;
+          }
+
+        /* Send init command to recognizer dsp */
+
+        recognizer_command.initrcgproc_param = cmd.init_rcg_param;
+        rcg_msg_type = MSG_AUD_RCG_INITRCGPROC;
+
+        target = TargetRecognizer;
+        break;
+
+      case AUDCMD_SET_RECOGNIZER_DSP:
+        if (!packetCheck(LENGTH_SET_RECOGNIZER_DSP, AUDCMD_SET_RECOGNIZER_DSP, cmd))
+          {
+            return;
+          }
+
+        /* Send set command to recognizer dsp */
+
+        recognizer_command.setrcgproc_param = cmd.set_rcg_param;
+        rcg_msg_type = MSG_AUD_RCG_SETRCGPROC;
+
+        target = TargetRecognizer;
         break;
 
       default:
+        sendErrRespResult(cmd.header.sub_code,
+                          AS_MODULE_ID_AUDIO_MANAGER,
+                          AS_ECODE_STATE_VIOLATION);
+        break;
+    }
+
+  /* Send to MicFrontend */
+
+  if (target & TargetFrontend)
+    {
+      if (!sendMicFrontendCommand(fed_msg_type, &frontend_command))
         {
           sendErrRespResult(cmd.header.sub_code,
-                            AS_MODULE_ID_AUDIO_MANAGER,
-                            AS_ECODE_COMMAND_CODE_ERROR);
+                            AS_MODULE_ID_MIC_FRONTEND_OBJ,
+                            AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
+          return;
         }
-        break;
+      m_req_reference_bits |= (1 << ElementMicFrontend);
+    }
+
+  /* Send to Recognizer */
+
+  if (target & TargetRecognizer)
+    {
+      if (!sendRecognizerCommand(rcg_msg_type, &recognizer_command))
+        {
+          sendErrRespResult(cmd.header.sub_code,
+                            AS_MODULE_ID_RECOGNITION_OBJ,
+                            AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR);
+          return;
+        }
+      m_req_reference_bits |= (1 << ElementRecognizer);
     }
 #else
   sendErrRespResult(cmd.header.sub_code,
@@ -2437,97 +2798,126 @@ void AudioManager::illegalCmplt(const AudioMngCmdCmpltResult &cmd)
 void AudioManager::cmpltOnReady(const AudioMngCmdCmpltResult &cmd)
 {
   uint8_t result_code = AUDRLT_ERRORRESPONSE;
+  uint8_t command_code = cmd.command_code;
 
-  if (cmd.result != AS_ECODE_OK)
+  /* Queue result */
+
+  m_reply_que.push(cmd);
+
+  /* Update transition state */
+
+#ifdef AS_FEATURE_PLAYER_ENABLE
+  if (cmd.module_id == AS_MODULE_ID_PLAYER_OBJ)
     {
-      switch (cmd.command_code)
-        {
-          case AUDCMD_SETPLAYERSTATUS:
-            deactivatePlayer();
-            break;
+      m_req_player_complete_bits[cmd.sub_module_id] |= (1 << ElementPlayer);
+    }
+#endif /* AS_FEATURE_PLAYER_ENABLE */
 
-          case AUDCMD_SETRECORDERSTATUS:
-            deactivateRecorder();
-            break;
+#ifdef AS_FEATURE_OUTPUTMIX_ENABLE
+  if (cmd.module_id == AS_MODULE_ID_OUTPUT_MIX_OBJ)
+    {
+      m_req_player_complete_bits[cmd.sub_module_id] |= (1 << ElementOutmixer);
+    }
+#endif /* AS_FEATURE_OUTPUTMIX_ENABLE */
 
-          case AUDCMD_SETBASEBANDSTATUS:
-            deactivateSoundFx();
-            break;
-        }
-      sendErrRespResult(cmd.sub_code, cmd.module_id, cmd.result);
+#ifdef AS_FEATURE_FRONTEND_ENABLE
+  if (cmd.module_id == AS_MODULE_ID_MIC_FRONTEND_OBJ)
+    {
+      m_req_complete_bits |= (1 << ElementMicFrontend);
+
+      /* convert MicFrontend event to HighLevelAPI Command */
+
+      command_code = convertMicFrontendEvent(static_cast<AsMicFrontendEvent>
+                                                         (cmd.command_code));
+    }
+#endif /* AS_FEATURE_FRONTEND_ENABLE */
+
+#ifdef AS_FEATURE_RECORDER_ENABLE
+  if (cmd.module_id == AS_MODULE_ID_MEDIA_RECORDER_OBJ)
+    {
+      m_req_complete_bits |= (1 << ElementRecorder);
+    }
+#endif /* AS_FEATURE_RECORDER_ENABLE */
+
+#ifdef AS_FEATURE_RECOGNIZER_ENABLE
+  if (cmd.module_id == AS_MODULE_ID_RECOGNITION_OBJ)
+    {
+      m_req_complete_bits |= (1 << ElementRecognizer);
+
+      /* convert Recognizer event to HighLevelAPI Command */
+
+      command_code = convertRecognizerEvent(static_cast<AsRecognizerEvent>
+                                                       (cmd.command_code));
+    }
+#endif /* AS_FEATURE_RECOGNIZER_ENABLE */
+
+  /* Check transition state */
+
+#if defined(AS_FEATURE_PLAYER_ENABLE) || defined(AS_FEATURE_OUTPUTMIX_ENABLE)
+   if (m_req_player_complete_bits[AS_PLAYER_ID_0] != m_req_player_reference_bits[AS_PLAYER_ID_0]
+    || m_req_player_complete_bits[AS_PLAYER_ID_1] != m_req_player_reference_bits[AS_PLAYER_ID_1])
+    {
+      return;
+    }
+#endif /* AS_FEATURE_PLAYER_ENABLE || AS_FEATURE_OUTPUTMIX_ENABLE */
+
+  if (m_req_complete_bits != m_req_reference_bits)
+    {
       return;
     }
 
-  switch (cmd.command_code)
+  /* Check result error */
+
+  while (!m_reply_que.empty())
+    {
+      if (m_reply_que.top().result != AS_ECODE_OK)
+        {
+#ifdef AS_FEATURE_PLAYER_ENABLE
+          if ((m_req_player_complete_bits[AS_PLAYER_ID_0] & (1 << ElementPlayer))
+           || (m_req_player_complete_bits[AS_PLAYER_ID_1] & (1 << ElementPlayer)))
+            {
+               deactivatePlayer();
+            }
+          else
+#endif /* AS_FEATURE_PLAYER_ENABLE */
+          if (m_req_reference_bits & (1 << ElementRecorder))
+            {
+              deactivateRecorder();
+            }
+          else if (m_req_reference_bits & (1 << ElementRecognizer))
+            {
+              deactivateRecognizer();
+            }
+
+          sendErrRespResult(cmd.sub_code, cmd.module_id, cmd.result);
+          m_reply_que.clear();
+          return;
+        }
+
+      m_reply_que.pop();
+    }
+
+  /* Check command */
+
+  switch (command_code)
     {
       case AUDCMD_SETPLAYERSTATUS:
-        m_command_code = AUDCMD_SETPLAYERSTATUS;
-        m_player_transition_count--;
-        if (m_player_transition_count <= 0)
-          {
-            result_code = AUDRLT_STATUSCHANGED;
-            m_State    = AS_MNG_STATUS_PLAYER;
-            m_SubState = AS_MNG_SUB_STATUS_PLAYREADY;
-          }
-         else
-          {
-            return;
-          }
+        result_code = AUDRLT_STATUSCHANGED;
+        m_State    = AS_MNG_STATUS_PLAYER;
+        m_SubState = AS_MNG_SUB_STATUS_PLAYREADY;
         break;
 
       case AUDCMD_SETRECORDERSTATUS:
-        m_command_code = AUDCMD_SETRECORDERSTATUS;
-        m_recorder_transition_count--;
-        if (m_recorder_transition_count <= 0)
-          {
-            result_code = AUDRLT_STATUSCHANGED;
-            m_State    = AS_MNG_STATUS_RECORDER;
-            m_SubState = AS_MNG_SUB_STATUS_RECORDERREADY;
-          }
-        else
-          {
-            return;
-          }
-        break;
-
-      case AUDCMD_SETBASEBANDSTATUS:
         result_code = AUDRLT_STATUSCHANGED;
-        m_State    = AS_MNG_STATUS_BASEBAND;
-        m_SubState = AS_MNG_SUB_STATUS_BASEBANDREADY;
+        m_State    = AS_MNG_STATUS_RECORDER;
+        m_SubState = AS_MNG_SUB_STATUS_RECORDERREADY;
         break;
 
-
-      case AUDCMD_POWERON:
-        if (m_command_code == AUDCMD_SETPLAYERSTATUS)
-          {
-            result_code = AUDRLT_STATUSCHANGED;
-            m_State    = AS_MNG_STATUS_PLAYER;
-            m_SubState = AS_MNG_SUB_STATUS_PLAYREADY;
-            m_command_code = 0;
-          }
-        else if (m_command_code == AUDCMD_SETRECORDERSTATUS)
-          {
-            result_code = AUDRLT_STATUSCHANGED;
-            m_State    = AS_MNG_STATUS_RECORDER;
-            m_SubState = AS_MNG_SUB_STATUS_RECORDERREADY;
-            m_command_code = 0;
-          }
+      case AUDCMD_SETRECOGNIZERSTATUS:
+        result_code = AUDRLT_STATUSCHANGED;
+        m_State    = AS_MNG_STATUS_RECOGNIZER;
+        m_SubState = AS_MNG_SUB_STATUS_RECOGNIZERACTIVE;
         break;
-
-      case AUDCMD_SETPOWEROFFSTATUS:
-        if (cmd.sub_code == 1)
-          {
-            deactivateOutputMix();
-
-            m_State    = AS_MNG_STATUS_POWEROFF;
-            m_SubState = AS_MNG_SUB_STATUS_NONE;
-            result_code = AUDRLT_STATUSCHANGED;
-            break;
-          }
-        else
-          {
-            return;
-          }
 
       default:
         sendErrRespResult(cmd.sub_code,
@@ -2535,6 +2925,17 @@ void AudioManager::cmpltOnReady(const AudioMngCmdCmpltResult &cmd)
                           AS_ECODE_COMMAND_CODE_ERROR);
         return;
     }
+
+  m_req_reference_bits = 0;
+  m_req_complete_bits = 0;
+
+#ifdef AS_FEATURE_PLAYER_ENABLE
+  m_req_player_complete_bits[AS_PLAYER_ID_0]  = 0;
+  m_req_player_reference_bits[AS_PLAYER_ID_0] = 0;
+  m_req_player_complete_bits[AS_PLAYER_ID_1]  = 0;
+  m_req_player_reference_bits[AS_PLAYER_ID_1] = 0;
+#endif /* AS_FEATURE_PLAYER_ENABLE */
+
   sendResult(result_code);
 }
 
@@ -2554,7 +2955,7 @@ void AudioManager::cmpltOnSoundFx(const AudioMngCmdCmpltResult &cmd)
         if (deactivateSoundFx())
           {
                 result_code = AUDRLT_STATUSCHANGED;
-              }
+          }
         break;
 
 #ifdef AS_FEATURE_EFFECTOR_ENABLE
@@ -2574,13 +2975,13 @@ void AudioManager::cmpltOnSoundFx(const AudioMngCmdCmpltResult &cmd)
 
 #endif  /* AS_FEATURE_EFFECTOR_ENABLE */
 #ifdef AS_FEATURE_RECOGNIZER_ENABLE
-      case AUDCMD_STARTVOICECOMMAND:
-        result_code = AUDRLT_STARTVOICECOMMANDCMPLT;
+      case AUDCMD_START_RECOGNIZER:
+        result_code = AUDRLT_START_RECOGNIZER_CMPLT;
         m_SubState = AS_MNG_SUB_STATUS_WAITCMDWORD;
         break;
 
-      case AUDCMD_STOPVOICECOMMAND:
-        result_code = AUDRLT_STOPVOICECOMMANDCMPLT;
+      case AUDCMD_STOP_RECOGNIZER:
+        result_code = AUDRLT_STOP_RECOGNIZER_CMPLT;
         m_SubState = AS_MNG_SUB_STATUS_BASEBANDACTIVE;
         break;
 
@@ -2605,17 +3006,62 @@ void AudioManager::cmpltOnSoundFx(const AudioMngCmdCmpltResult &cmd)
 void AudioManager::cmpltOnPlayer(const AudioMngCmdCmpltResult &cmd)
 {
 #ifdef AS_FEATURE_PLAYER_ENABLE
-  if (cmd.result != AS_ECODE_OK)
+  uint8_t result_code = AUDRLT_ERRORRESPONSE;
+
+  /* Queue result */
+
+  m_reply_que.push(cmd);
+
+  /* Update transition state */
+
+  if (cmd.module_id == AS_MODULE_ID_PLAYER_OBJ)
     {
-      sendErrRespResult(cmd.sub_code,
-                        cmd.module_id,
-                        cmd.result,
-                        cmd.sub_result,
-                        cmd.sub_module_id);
+      m_req_player_complete_bits[cmd.sub_module_id] |= (1 << ElementPlayer);
+    }
+
+  if (cmd.module_id == AS_MODULE_ID_OUTPUT_MIX_OBJ)
+    {
+      m_req_player_complete_bits[cmd.sub_module_id] |= (1 << ElementOutmixer);
+    }
+
+  /* Check transition state */
+
+  if (AUDCMD_SETREADYSTATUS == cmd.command_code)
+    {
+      /* Wait for all completions to transition to Ready */
+
+      if (m_req_player_complete_bits[AS_PLAYER_ID_0] != m_req_player_reference_bits[AS_PLAYER_ID_0]
+       || m_req_player_complete_bits[AS_PLAYER_ID_1] != m_req_player_reference_bits[AS_PLAYER_ID_1])
+        {
+          return;
+        }
+
+      m_req_player_complete_bits[AS_PLAYER_ID_0]  = 0;
+      m_req_player_reference_bits[AS_PLAYER_ID_0] = 0;
+      m_req_player_complete_bits[AS_PLAYER_ID_1]  = 0;
+      m_req_player_reference_bits[AS_PLAYER_ID_1] = 0;
+    }
+  else
+    {
+      /* Wait for a response for each PlayerID */
+
+      if (m_req_player_complete_bits[cmd.sub_module_id] != m_req_player_reference_bits[cmd.sub_module_id])
+        {
+          return;
+        }
+
+      m_req_player_complete_bits[cmd.sub_module_id]  = 0;
+      m_req_player_reference_bits[cmd.sub_module_id] = 0;
+    }
+
+  /* Check result error */
+
+  if (!checkCmpltQueue())
+    {
       return;
     }
 
-  uint8_t result_code = AUDRLT_ERRORRESPONSE;
+  /* Check command */
 
   switch (cmd.command_code)
     {
@@ -2631,6 +3077,10 @@ void AudioManager::cmpltOnPlayer(const AudioMngCmdCmpltResult &cmd)
       case AUDCMD_STOPPLAYER:
         result_code = AUDRLT_STOPCMPLT;
         m_SubState = AS_MNG_SUB_STATUS_PLAYREADY;
+        break;
+
+      case AUDCMD_INIT_OUTPUTMIXER:
+        result_code = AUDRLT_INIT_OUTPUTMIXER_CMPLT;
         break;
 
       case AUDCMD_CLKRECOVERY:
@@ -2650,28 +3100,11 @@ void AudioManager::cmpltOnPlayer(const AudioMngCmdCmpltResult &cmd)
         break;
 
       case AUDCMD_SETREADYSTATUS:
-        m_player_transition_count--;
-        if (m_player_transition_count <= 0)
+        if (deactivatePlayer())
           {
-            if (deactivatePlayer())
-              {
-                result_code = AUDRLT_STATUSCHANGED;
-              }
-          }
-        else
-          {
-            return;
+            result_code = AUDRLT_STATUSCHANGED;
           }
         break;
-
-      case AUDCMD_POWERON:
-        m_State    = AS_MNG_STATUS_READY;
-        m_SubState = AS_MNG_SUB_STATUS_NONE;
-        result_code = AUDRLT_STATUSCHANGED;
-        break;
-
-      case AUDCMD_SETPOWEROFFSTATUS:
-        return;
 
       default:
         sendErrRespResult(cmd.sub_code,
@@ -2694,88 +3127,78 @@ void AudioManager::cmpltOnPlayer(const AudioMngCmdCmpltResult &cmd)
 void AudioManager::cmpltOnRecorder(const AudioMngCmdCmpltResult &cmd)
 {
 #ifdef AS_FEATURE_RECORDER_ENABLE
-  if (cmd.result != AS_ECODE_OK)
+  uint8_t result_code = AUDRLT_ERRORRESPONSE;
+  uint8_t command_code = cmd.command_code;
+
+  /* Queue result */
+
+  m_reply_que.push(cmd);
+
+  /* Update transition state */
+
+  if (cmd.module_id == AS_MODULE_ID_MIC_FRONTEND_OBJ)
     {
-      sendErrRespResult(cmd.sub_code,
-                        cmd.module_id,
-                        cmd.result,
-                        cmd.sub_result);
+      m_req_complete_bits |= (1 << ElementMicFrontend);
+
+      /* convert MicFrontend event to HighLevelAPI Command */
+
+      command_code = convertMicFrontendEvent(static_cast<AsMicFrontendEvent>
+                                                         (cmd.command_code));
+    }
+
+  if (cmd.module_id == AS_MODULE_ID_MEDIA_RECORDER_OBJ)
+    {
+      m_req_complete_bits |= (1 << ElementRecorder);
+    }
+
+  /* Chech transition state */
+
+  if (m_req_reference_bits != m_req_complete_bits)
+    {
       return;
     }
 
-  uint8_t result_code = AUDRLT_ERRORRESPONSE;
+  /* Check result error */
 
-  switch (cmd.command_code)
+  if (!checkCmpltQueue())
+    {
+      return;
+    }
+
+  switch (command_code)
     {
       case AUDCMD_INITREC:
-        m_recorder_transition_count--;
-        if (m_recorder_transition_count <= 0)
-          {
-            result_code = AUDRLT_INITRECCMPLT;
-          }
-        else
-          {
-            return;
-          }
+        result_code = AUDRLT_INITRECCMPLT;
         break;
 
       case AUDCMD_STARTREC:
-        m_recorder_transition_count--;
-        if (m_recorder_transition_count <= 0)
-          {
-            result_code = AUDRLT_RECCMPLT;
-            m_SubState = AS_MNG_SUB_STATUS_RECORDERACTIVE;
-          }
-        else
-          {
-            return;
-          }
+        result_code = AUDRLT_RECCMPLT;
+        m_SubState = AS_MNG_SUB_STATUS_RECORDERACTIVE;
         break;
 
       case AUDCMD_STOPREC:
-        m_recorder_transition_count--;
-        if (m_recorder_transition_count <= 0)
-          {
-            result_code = AUDRLT_STOPRECCMPLT;
-            m_SubState = AS_MNG_SUB_STATUS_RECORDERREADY;
-          }
-        else
-          {
-            return;
-          }
+        result_code = AUDRLT_STOPRECCMPLT;
+        m_SubState = AS_MNG_SUB_STATUS_RECORDERREADY;
         break;
 
-      case AUDCMD_INITMFE:
-        result_code = AUDRLT_INITMFECMPLT;
+      case AUDCMD_INIT_MICFRONTEND:
+        result_code = AUDRLT_INIT_MICFRONTEND;
+        break;
+ 
+      case AUDCMD_INIT_PREPROCESS_DSP:
+        result_code = AUDRLT_INIT_PREPROCESS_DSP_CMPLT;
         break;
 
-      case AUDCMD_SETMFE:
-        result_code = AUDRLT_SETMFECMPLT;
+      case AUDCMD_SET_PREPROCESS_DSP:
+        result_code = AUDRLT_SET_PREPROCESS_DSP_CMPLT;
         break;
 
       case AUDCMD_SETREADYSTATUS:
-        m_recorder_transition_count--;
-        if (m_recorder_transition_count <= 0)
+        if (deactivateRecorder())
           {
-            if (deactivateRecorder())
-              {
-                result_code = AUDRLT_STATUSCHANGED;
-              }
-          }
-        else
-          {
-            return;
+            result_code = AUDRLT_STATUSCHANGED;
           }
         break;
-
-      case AUDCMD_POWERON:
-        m_State    = AS_MNG_STATUS_READY;
-        m_SubState = AS_MNG_SUB_STATUS_NONE;
-        result_code = AUDRLT_STATUSCHANGED;
-        break;
-
-      case AUDCMD_SETPOWEROFFSTATUS:
-        return;
 
       default:
         sendErrRespResult(cmd.sub_code,
@@ -2784,12 +3207,125 @@ void AudioManager::cmpltOnRecorder(const AudioMngCmdCmpltResult &cmd)
         return;
     }
 
+  m_req_complete_bits = 0;
+  m_req_reference_bits = 0;
+
   sendResult(result_code);
 #else
   sendErrRespResult(cmd.sub_code,
                     AS_MODULE_ID_AUDIO_MANAGER,
                     AS_ECODE_COMMAND_NOT_SUPPOT);
 #endif /* AS_FEATURE_RECORDER_ENABLE */
+}
+
+/*--------------------------------------------------------------------------*/
+void AudioManager::cmpltOnRecognizer(const AudioMngCmdCmpltResult &cmd)
+{
+#ifdef AS_FEATURE_RECOGNIZER_ENABLE
+  uint8_t result_code = AUDRLT_ERRORRESPONSE;
+  uint8_t command_code = cmd.command_code;
+
+  /* Queue result */
+
+  m_reply_que.push(cmd);
+
+  /* Update transition state */
+
+  if (cmd.module_id == AS_MODULE_ID_MIC_FRONTEND_OBJ)
+    {
+      m_req_complete_bits |= (1 << ElementMicFrontend);
+
+      /* Convert MicFrontend event to HighLevelAPI Command */
+
+      command_code = convertMicFrontendEvent(static_cast<AsMicFrontendEvent>
+                                                         (cmd.command_code));
+    }
+
+  if (cmd.module_id == AS_MODULE_ID_RECOGNITION_OBJ)
+    {
+      m_req_complete_bits |= (1 << ElementRecognizer);
+
+      /* Convert Recognizer event to HighLevelAPI Command */
+
+      command_code = convertRecognizerEvent(static_cast<AsRecognizerEvent>
+                                                       (cmd.command_code));
+    }
+
+  /* Check transition state */
+
+  if (m_req_reference_bits != m_req_complete_bits)
+    {
+      return;
+    }
+
+  /* Check result error */
+
+  if (!checkCmpltQueue())
+    {
+      return;
+    }
+
+  /* Check command */
+
+  switch (command_code)
+    {
+      case AUDCMD_SETREADYSTATUS:
+        if (deactivateRecognizer())
+          {
+            result_code = AUDRLT_STATUSCHANGED;
+          }
+        break;
+
+      case AUDCMD_INIT_RECOGNIZER:
+        result_code = AUDRLT_INIT_RECOGNIZER_CMPLT;
+        break;
+
+      case AUDCMD_START_RECOGNIZER:
+        result_code = AUDRLT_START_RECOGNIZER_CMPLT;
+        m_SubState = AS_MNG_SUB_STATUS_RECOGNIZERACTIVE;
+        break;
+
+      case AUDCMD_STOP_RECOGNIZER:
+        result_code = AUDRLT_STOP_RECOGNIZER_CMPLT;
+        m_SubState = AS_MNG_SUB_STATUS_RECOGNIZERREADY;
+        break;
+
+      case AUDCMD_INIT_RECOGNIZER_DSP:
+        result_code = AUDRLT_INIT_RECOGNIZER_DSP_CMPLT;
+        break;
+
+      case AUDCMD_SET_RECOGNIZER_DSP:
+        result_code = AUDRLT_SET_RECOGNIZER_DSP_CMPLT;
+        break;
+
+      case AUDCMD_INIT_MICFRONTEND:
+        result_code = AUDRLT_INIT_MICFRONTEND;
+        break;
+      
+      case AUDCMD_INIT_PREPROCESS_DSP:
+        result_code = AUDRLT_INIT_PREPROCESS_DSP_CMPLT;
+        break;
+
+      case AUDCMD_SET_PREPROCESS_DSP:
+        result_code = AUDRLT_SET_PREPROCESS_DSP_CMPLT;
+        break;
+
+      default:
+        sendErrRespResult(cmd.sub_code,
+                          AS_MODULE_ID_AUDIO_MANAGER,
+                          AS_ECODE_COMMAND_CODE_ERROR);
+        return;
+    }
+
+  m_req_complete_bits = 0;
+  m_req_reference_bits = 0;
+
+  sendResult(result_code);
+#else
+  sendErrRespResult(cmd.sub_code,
+                    AS_MODULE_ID_AUDIO_MANAGER,
+                    AS_ECODE_COMMAND_NOT_SUPPOT);
+#endif  /* AS_FEATURE_RECOGNIZER_ENABLE */
 }
 
 /*--------------------------------------------------------------------------*/
@@ -2821,20 +3357,26 @@ void AudioManager::cmpltOnPowerOff(const AudioMngCmdCmpltResult &cmd)
 }
 
 /*--------------------------------------------------------------------------*/
-AsVadStatus AudioManager::m_VadState = AS_VAD_STATUS_OUT_OF_VOICE_SECTION;
-#ifdef AS_FEATURE_RECOGNIZER_ENABLE
-AudioFindCommandCallbackFunction  AudioManager::m_findCommandCBFunc = NULL;
-
-void AudioManager::execFindCommandCallback(uint16_t key_word, uint8_t status)
+bool AudioManager::checkCmpltQueue(void)
 {
-  m_VadState =
-    ((status != 0) ? AS_VAD_STATUS_INSIDE_VOICE_SECTION : AS_VAD_STATUS_OUT_OF_VOICE_SECTION);
-  if (m_findCommandCBFunc != NULL)
+  while (!m_reply_que.empty())
     {
-      (*m_findCommandCBFunc)(key_word, status);
+      if (m_reply_que.top().result != AS_ECODE_OK)
+        {
+          sendErrRespResult(m_reply_que.top().sub_code,
+                            m_reply_que.top().module_id,
+                            m_reply_que.top().result,
+                            m_reply_que.top().sub_result);
+
+          m_reply_que.clear();
+          return false;
+        }
+
+      m_reply_que.pop();
     }
+
+  return true;
 }
-#endif  /* AS_FEATURE_RECOGNIZER_ENABLE */
 
 /*--------------------------------------------------------------------------*/
 void AudioManager::sendResult(uint8_t code, uint8_t sub_code, uint8_t instance_id)
@@ -2895,10 +3437,11 @@ bool AudioManager::deactivatePlayer()
       return false;
     }
 
-      m_State    = AS_MNG_STATUS_READY;
-      m_SubState = AS_MNG_SUB_STATUS_NONE;
-      return true;
-    }
+  m_State    = AS_MNG_STATUS_READY;
+  m_SubState = AS_MNG_SUB_STATUS_NONE;
+
+  return true;
+}
 
 /*--------------------------------------------------------------------------*/
 bool AudioManager::deactivateRecorder()
@@ -2915,12 +3458,18 @@ bool AudioManager::deactivateRecorder()
       return false;
     }
 
-      m_State    = AS_MNG_STATUS_READY;
-      m_SubState = AS_MNG_SUB_STATUS_NONE;
+  m_State    = AS_MNG_STATUS_READY;
+  m_SubState = AS_MNG_SUB_STATUS_NONE;
 
   return true;
 }
 
+/*--------------------------------------------------------------------------*/
+bool AudioManager::deactivateRecognizer()
+{
+  return deactivateRecorder();
+}
+ 
 /*--------------------------------------------------------------------------*/
 bool AudioManager::deactivateSoundFx()
 {
@@ -2940,8 +3489,8 @@ bool AudioManager::deactivateSoundFx()
       return false;
     }
 
-      m_State    = AS_MNG_STATUS_READY;
-      m_SubState = AS_MNG_SUB_STATUS_NONE;
+  m_State    = AS_MNG_STATUS_READY;
+  m_SubState = AS_MNG_SUB_STATUS_NONE;
 
   return true;
 }
@@ -3003,6 +3552,14 @@ int AudioManager::getAllState(void)
 
       case AS_MNG_SUB_STATUS_RECORDERACTIVE:
         allstate = MNG_ALLSTATE_RECODERACTIVE;
+        break;
+
+      case AS_MNG_SUB_STATUS_RECOGNIZERREADY:
+        allstate = MNG_ALLSTATE_RECOGNIZERREADY;
+        break;
+
+      case AS_MNG_SUB_STATUS_RECOGNIZERACTIVE:
+        allstate = MNG_ALLSTATE_RECOGNIZERACTIVE;
         break;
 
       case AS_MNG_SUB_STATUS_BASEBANDREADY:
@@ -3084,18 +3641,7 @@ void AudioManager::setMicGain(AudioCommand &cmd)
 }
 
 /*--------------------------------------------------------------------------*/
-void AudioManager::initI2SParam(AudioCommand &cmd)
-{
-  sendResult(AUDRLT_INITI2SPARAMCMPLT, cmd.header.sub_code);
-}
 
-/*--------------------------------------------------------------------------*/
-void AudioManager::setI2SParam(AudioCommand &cmd)
-{
-  sendResult(AUDRLT_INITI2SPARAMCMPLT, cmd.header.sub_code);
-}
-
-/*--------------------------------------------------------------------------*/
 void AudioManager::initDEQParam(AudioCommand &cmd)
 {
   bool check =
@@ -3180,7 +3726,7 @@ void AudioManager::setClearStereo(AudioCommand &cmd)
     {
       error_code = cxd56_audio_dis_cstereo();
     }
-  
+
   if (error_code == CXD56_AUDIO_ECODE_OK)
     {
       sendResult(AUDRLT_INITCLEARSTEREOCMPLT, cmd.header.sub_code);
@@ -3704,6 +4250,41 @@ bool AudioManager::sendMicFrontendCommand(MsgType msgtype, MicFrontendCommand *c
  
   return true;
 }
+
+/*--------------------------------------------------------------------------*/
+uint8_t AudioManager::convertMicFrontendEvent(AsMicFrontendEvent event)
+{
+  uint8_t cmd_code_mrc[] =
+  {
+    AUDCMD_SETRECORDERSTATUS,
+    AUDCMD_SETREADYSTATUS,
+    AUDCMD_INIT_MICFRONTEND,
+    AUDCMD_STARTREC,
+    AUDCMD_STOPREC,
+    AUDCMD_INIT_PREPROCESS_DSP,
+    AUDCMD_SET_PREPROCESS_DSP,
+  };
+
+  uint8_t cmd_code_rcg[] =
+  {
+    AUDCMD_SETRECOGNIZERSTATUS,
+    AUDCMD_SETREADYSTATUS,
+    AUDCMD_INIT_MICFRONTEND,
+    AUDCMD_START_RECOGNIZER,
+    AUDCMD_STOP_RECOGNIZER,
+    AUDCMD_INIT_PREPROCESS_DSP,
+    AUDCMD_SET_PREPROCESS_DSP,
+  };
+
+  if (m_req_reference_bits & (1 << ElementRecorder))
+    {
+      return cmd_code_mrc[event];
+    }
+  else
+    {
+      return cmd_code_rcg[event];
+    }
+}
 #endif  /* AS_FEATURE_FRONTEND_ENABLE */
 
 #ifdef AS_FEATURE_RECORDER_ENABLE
@@ -3725,6 +4306,44 @@ bool AudioManager::sendRecorderCommand(MsgType msgtype, RecorderCommand *cmd)
   return true;
 }
 #endif /* AS_FEATURE_RECORDER_ENABLE */
+
+#ifdef AS_FEATURE_RECOGNIZER_ENABLE
+/*--------------------------------------------------------------------------*/
+bool AudioManager::sendRecognizerCommand(MsgType msgtype, RecognizerCommand *cmd)
+{
+  if (!AS_checkAvailabilityRecognizer())
+    {
+      return false;
+    }
+
+  err_t er = MsgLib::send<RecognizerCommand>(s_rcgMid,
+                                             MsgPriNormal,
+                                             msgtype,
+                                             m_selfDtq,
+                                             *cmd);
+  F_ASSERT(er == ERR_OK);
+
+  return true;
+}
+
+/*--------------------------------------------------------------------------*/
+uint8_t AudioManager::convertRecognizerEvent(AsRecognizerEvent event)
+{
+  uint8_t cmd_code[] =
+  {
+    AUDCMD_SETRECOGNIZERSTATUS,
+    AUDCMD_SETREADYSTATUS,
+    AUDCMD_INIT_RECOGNIZER,
+    AUDCMD_START_RECOGNIZER,
+    0, /* Exec is used internally. It isn't return to AudioMangaer.*/
+    AUDCMD_STOP_RECOGNIZER,
+    AUDCMD_INIT_RECOGNIZER_DSP,
+    AUDCMD_SET_RECOGNIZER_DSP,
+  };
+
+  return cmd_code[event];
+}
+#endif /* AS_FEATURE_RECOGNIZER_ENABLE */
 
 #ifdef AS_FEATURE_PLAYER_ENABLE
 /*--------------------------------------------------------------------------*/
@@ -3848,15 +4467,15 @@ S_ASSERT((LENGTH_STOP_SUBPLAYER << 2) ==
 
 #ifdef AS_FEATURE_RECOGNIZER_ENABLE
 
-/* StartVoiceComamnd command (AUDCMD_STARTVOICECOMMAND) packet length. */
+/* StartVoiceComamnd command (AUDCMD_START_RECOGNIZER) packet length. */
 
-S_ASSERT((LENGTH_START_VOICE_COMMAND << 2) ==
-  (sizeof(AudioCommandHeader) + sizeof(StartVoiceCommandParam)));
+S_ASSERT((LENGTH_START_RECOGNIZER << 2) ==
+  (sizeof(AudioCommandHeader) + sizeof(AsStartRecognizer)));
 
-/* StopVoiceCommand command (AUDCMD_STOPVOICECOMMAND) packet length. */
+/* StopVoiceCommand command (AUDCMD_STOP_RECOGNIZER) packet length. */
 
-S_ASSERT((LENGTH_STOP_VOICE_COMMAND << 2) ==
-  (sizeof(AudioCommandHeader) + 4));
+S_ASSERT((LENGTH_STOP_RECOGNIZER << 2) ==
+  (sizeof(AudioCommandHeader) + sizeof(AsStopRecognizer)));
 #endif /* #ifdef AS_FEATURE_RECOGNIZER_ENABLE */
 
 #ifdef AS_FEATURE_RECORDER_ENABLE

@@ -211,7 +211,8 @@ uint32_t EncoderComponent::activate_apu(AudioCodec param,
   int ret = DD_Load(filepath, 
                     enc_dsp_done_callback, 
                     (void *)this, 
-                    &m_dsp_handler);
+                    &m_dsp_handler,
+                    DspBinTypeELFwoBind);
 
   if (ret != DSPDRV_NOERROR)
     {
@@ -373,7 +374,7 @@ uint32_t EncoderComponent::init_apu(const InitEncParam& param, uint32_t *dsp_inf
   /* Wait init completion and receive reply information */
 
   Apu::InternalResult internal_result;
-  uint32_t rst = dsp_init_check(m_apu_dtq, &internal_result);
+  uint32_t rst = dsp_init_check<Apu::InternalResult>(m_apu_dtq, &internal_result);
   *dsp_inf = internal_result.value;
 
   return rst;
@@ -459,7 +460,7 @@ bool EncoderComponent::recv_apu(void *p_response)
       /* Notify init completion to myself */
 
       Apu::InternalResult internal_result = packet->result.internal_result[0];
-      dsp_init_complete(m_apu_dtq, packet->result.exec_result, &internal_result);
+      dsp_init_complete<Apu::InternalResult>(m_apu_dtq, packet->result.exec_result, &internal_result);
 
       return true;
     }

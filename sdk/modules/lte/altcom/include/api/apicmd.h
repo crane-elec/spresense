@@ -113,7 +113,8 @@
 #define APICMDID_GET_DYNAMICEDRX        (0x0035)
 #define APICMDID_GET_DYNAMICPSM         (0x0036)
 #define APICMDID_GET_QUALITY            (0x0037)
-
+#define APICMDID_ACTIVATE_PDN_CANCEL    (0x0038)
+#define APICMDID_GET_CELLINFO           (0x0039)
 /* SOCKET API commands */
 
 #define APICMDID_SOCK_ACCEPT            (0x0080)
@@ -154,6 +155,7 @@
 #define APICMDID_TLS_SSL_VERIFY_RESULT          (0x010D)
 #define APICMDID_TLS_SSL_TIMER_CB               (0x010E)
 #define APICMDID_TLS_SSL_PEER_CERT              (0x010F)
+#define APICMDID_TLS_SSL_BYTES_AVAIL            (0x0110)
 #define APICMDID_TLS_CONFIG_INIT                (0x0120)
 #define APICMDID_TLS_CONFIG_FREE                (0x0121)
 #define APICMDID_TLS_CONFIG_DEFAULTS            (0x0112)
@@ -241,15 +243,35 @@
 #define APICMDID_TLS_RSA_FREE                   (0x0251)
 #define APICMDID_TLS_RSA_GEN_KEY                (0x0252)
 
+/* SMS API commands */
+
+#define APICMDID_SMS_INIT                       (0x0500)
+#define APICMDID_SMS_FIN                        (0x0501)
+#define APICMDID_SMS_SEND                       (0x0502)
+#define APICMDID_SMS_REPORT_RECV                (0x0503)
+#define APICMDID_SMS_DELETE                     (0x0504)
+#define APICMDID_SMS_GET_STGEINFO               (0x0505)
+#define APICMDID_SMS_GET_LIST                   (0x0506)
+#define APICMDID_SMS_READ                       (0x0507)
+
 #define APICMDID_ERRIND                 (0xFFFF)
 
-#define APICMDID_MAX                    APICMDID_TLS_RSA_GEN_KEY
+#define APICMDID_MAX                    APICMDID_SMS_READ
 
 /* In the case of a response, set 15th bit of the command ID. */
 
 #define APICMDID_CONVERT_RES(cmdid)     (cmdid | 0x8000)
 
 #define APICMD_PAYLOAD_SIZE_MAX         (4112)
+
+/* API command header options field */
+
+#define APICMD_OPT_DATA_CHKSUM_EN_SIFT  (0)
+#define APICMD_OPT_DATA_CHKSUM_EN_MASK  (1 << APICMD_OPT_DATA_CHKSUM_EN_SIFT)
+#define APICMD_OPT_DATA_CHKSUM_ENABLE   (1 << APICMD_OPT_DATA_CHKSUM_EN_SIFT)
+#define APICMD_OPT_DATA_CHKSUM_DISABLE  (0 << APICMD_OPT_DATA_CHKSUM_EN_SIFT)
+
+#define APICMD_OPT_DATA_CHKSUM_ENABLED(opt) (((opt) & APICMD_OPT_DATA_CHKSUM_EN_MASK) == APICMD_OPT_DATA_CHKSUM_ENABLE)
 
 /****************************************************************************
  * Public Types
@@ -271,9 +293,9 @@
  *         ----------------------------------------------
  *         |                 data length                |
  *         ----------------------------------------------
- *         |                  check sum                 |
+ *         |                  options                   |
  *         ----------------------------------------------
- *         |                   reserve                  |
+ *         |              check sum(header part)        |
  *         ----------------------------------------------
  ****************************************************************************/
 
@@ -285,8 +307,24 @@ begin_packed_struct struct apicmd_cmdhdr_s
   uint16_t cmdid;
   uint16_t transid;
   uint16_t dtlen;
+  uint16_t options;
   uint16_t chksum;
+} end_packed_struct;
+
+/****************************************************************************
+ * API command Footer Format
+ * bits    0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+ *         ----------------------------------------------
+ *         |                  reserve                   |
+ *         ----------------------------------------------
+ *         |        check sum(data + footer part)       |
+ *         ----------------------------------------------
+ ****************************************************************************/
+
+begin_packed_struct struct apicmd_cmdftr_s
+{
   uint16_t reserve;
+  uint16_t chksum;
 } end_packed_struct;
 
 #endif /* __MODULES_LTE_ALTCOM_INCLUDE_API_APICMD_H */

@@ -43,7 +43,6 @@
 #include <nuttx/kmalloc.h>
 #include <string.h>
 #include <stdlib.h>
-#include <arch/chip/cxd56_audio.h>
 #include "memutils/os_utils/os_wrapper.h"
 #include "memutils/common_utils/common_assert.h"
 #include "media_player_obj.h"
@@ -81,8 +80,8 @@ using namespace MemMgrLite;
  * Private Data
  ****************************************************************************/
 
-static pid_t s_ply_pid = -1;
-static pid_t s_sub_ply_pid;
+static pthread_t s_ply_pid = INVALID_PROCESS_ID;
+static pthread_t s_sub_ply_pid = INVALID_PROCESS_ID;
 
 static AsPlayerMsgQueId_t s_msgq_id;
 static AsPlayerMsgQueId_t s_sub_msgq_id;
@@ -1387,7 +1386,7 @@ uint32_t PlayerObj::startPlay(uint32_t* dsp_inf)
   init_dec_comp_param.p_requester         = static_cast<void*>(this);
   init_dec_comp_param.bit_width =
     ((m_input_device_handler->getBitLen() == AS_BITLENGTH_16) ?
-     AudPcm16Bit : AudPcm24Bit);
+     AudPcmFormatInt16 : AudPcmFormatInt24);
   init_dec_comp_param.work_buffer.p_buffer = reinterpret_cast<unsigned long*>
       (allocSrcWorkBuf(m_max_src_work_buff_size));
   init_dec_comp_param.work_buffer.size     = m_max_src_work_buff_size;
@@ -1674,23 +1673,21 @@ bool PlayerObj::judgeMultiCore(uint32_t sampling_rate, uint8_t bit_length)
  ****************************************************************************/
 
 /*--------------------------------------------------------------------------*/
-int AS_PlayerObjEntry(int argc, char *argv[])
+FAR void AS_PlayerObjEntry(FAR void *arg)
 {
   PlayerObj::create(&s_play_obj,
                     s_msgq_id,
                     s_pool_id,
                     s_player_id);
-  return 0;
 }
 
 /*--------------------------------------------------------------------------*/
-int AS_SubPlayerObjEntry(int argc, char *argv[])
+FAR void AS_SubPlayerObjEntry(FAR void *arg)
 {
   PlayerObj::create(&s_sub_play_obj,
                     s_sub_msgq_id,
                     s_sub_pool_id,
                     s_sub_player_id);
-  return 0;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1717,15 +1714,34 @@ static bool CreatePlayerMulti(AsPlayerId id, AsPlayerMsgQueId_t msgq_id, AsPlaye
       F_ASSERT(err_code == ERR_OK);
       que->reset();
 
-      s_ply_pid = task_create("PLY_OBJ",
-                              150, 1024 * 3,
-                              AS_PlayerObjEntry,
-                              NULL);
-      if (s_ply_pid < 0)
+      /* Init pthread attributes object. */
+
+      pthread_attr_t attr;
+      pthread_attr_init(&attr);
+
+      /* Set pthread scheduling parameter. */
+
+      struct sched_param sch_param;
+
+      sch_param.sched_priority = 150;
+      attr.stacksize           = 1024 * 3;
+
+      pthread_attr_setschedparam(&attr, &sch_param);
+
+      /* Create thread. */
+
+      int ret = pthread_create(&s_ply_pid,
+                               &attr,
+                               (pthread_startroutine_t)AS_PlayerObjEntry,
+                               (pthread_addr_t)NULL);
+      if (ret < 0)
         {
           MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
           return false;
         }
+
+      pthread_setname_np(s_ply_pid, "media_player0");
+
     }
   else
     {
@@ -1740,20 +1756,38 @@ static bool CreatePlayerMulti(AsPlayerId id, AsPlayerMsgQueId_t msgq_id, AsPlaye
       F_ASSERT(err_code == ERR_OK);
       que->reset();
 
-      s_sub_ply_pid = task_create("SUB_PLY_OBJ",
-                                  150, 1024 * 3,
-                                  AS_SubPlayerObjEntry,
-                                  NULL);
-      if (s_sub_ply_pid < 0)
+      /* Init pthread attributes object. */
+
+      pthread_attr_t attr;
+      pthread_attr_init(&attr);
+
+      /* Set pthread scheduling parameter. */
+
+      struct sched_param sch_param;
+
+      sch_param.sched_priority = 150;
+      attr.stacksize           = 1024 * 3;
+
+      pthread_attr_setschedparam(&attr, &sch_param);
+
+      /* Create thread. */
+
+      int ret = pthread_create(&s_sub_ply_pid,
+                               &attr,
+                               (pthread_startroutine_t)AS_SubPlayerObjEntry,
+                               (pthread_addr_t)NULL);
+      if (ret < 0)
         {
           MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_TASK_CREATE_ERROR);
           return false;
         }
+
+      pthread_setname_np(s_sub_ply_pid, "media_player1");
+
     }
 
   return true;
 }
-
 
 /*
  * The following tree functions are Old functions for compatibility.
@@ -2038,13 +2072,16 @@ bool AS_DeletePlayer(AsPlayerId id)
 {
   if (id == AS_PLAYER_ID_0)
     {
-      if (s_ply_pid < 0)
+      if (s_ply_pid == INVALID_PROCESS_ID)
         {
           MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
           return false;
         }
 
-      task_delete(s_ply_pid);
+      pthread_cancel(s_ply_pid);
+      pthread_join(s_ply_pid, NULL);
+
+      s_ply_pid = INVALID_PROCESS_ID;
 
       if (s_play_obj != NULL)
         {
@@ -2054,13 +2091,16 @@ bool AS_DeletePlayer(AsPlayerId id)
     }
   else
     {
-      if (s_sub_ply_pid < 0)
+      if (s_sub_ply_pid == INVALID_PROCESS_ID)
         {
           MEDIA_PLAYERS_ERR(id, AS_ATTENTION_SUB_CODE_RESOURCE_ERROR);
           return false;
         }
-    
-      task_delete(s_sub_ply_pid);
+
+      pthread_cancel(s_sub_ply_pid);
+      pthread_join(s_sub_ply_pid, NULL);
+
+      s_sub_ply_pid = INVALID_PROCESS_ID;
 
       if (s_sub_play_obj != NULL)
         {

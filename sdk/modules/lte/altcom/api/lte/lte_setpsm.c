@@ -56,13 +56,8 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define SETPSM_DATA_LEN      (sizeof(struct apicmd_cmddat_setpsm_s))
-#define SETPSM_RAT_UNIT_MIN  LTE_PSM_T3324_UNIT_2SEC
-#define SETPSM_RAT_UNIT_MAX  LTE_PSM_T3324_UNIT_6MIN
-#define SETPSM_TAU_UNIT_MIN  LTE_PSM_T3412_UNIT_2SEC
-#define SETPSM_TAU_UNIT_MAX  LTE_PSM_T3412_UNIT_320HOUR
-#define SETPSM_TIMER_VAL_MIN (1)
-#define SETPSM_TIMER_VAL_MAX (31)
+#define REQ_DATA_LEN (sizeof(struct apicmd_cmddat_setpsm_s))
+#define RES_DATA_LEN (sizeof(struct apicmd_cmddat_setpsmres_s))
 
 /****************************************************************************
  * Private Functions
@@ -124,14 +119,13 @@ static void setpsm_job(FAR void *arg)
 
   if ((ret == 0) && (callback))
     {
-      if (APICMD_SETPSM_RES_OK == data->result)
+      if (LTE_RESULT_OK == data->result)
         {
           callback(LTE_RESULT_OK);
         }
       else
         {
           callback(LTE_RESULT_ERROR);
-          DBGIF_ASSERT(APICMD_SETPSM_RES_ERR == data->result, "result parameter error.\n");
         }
     }
   else
@@ -151,8 +145,141 @@ static void setpsm_job(FAR void *arg)
 }
 
 /****************************************************************************
+ * Name: lte_setpsm_impl
+ *
+ * Description:
+ *   Set PSM settings.
+ *
+ * Input Parameters:
+ *   settings PSM settings.
+ *   callback Callback function to notify that PSM settings are completed.
+ *            If the callback is NULL, operates with synchronous API,
+ *            otherwise operates with asynchronous API.
+ *
+ * Returned Value:
+ *   On success, 0 is returned.
+ *   On failure, negative value is returned according to <errno.h>.
+ *
+ ****************************************************************************/
+
+static int32_t lte_setpsm_impl(lte_psm_setting_t *settings,
+                               set_psm_cb_t callback)
+{
+  int32_t                            ret;
+  FAR struct apicmd_cmddat_setpsm_s *reqbuff    = NULL;
+  FAR uint8_t                       *presbuff   = NULL;
+  struct apicmd_cmddat_setpsmres_s   resbuff;
+  uint16_t                           resbufflen = RES_DATA_LEN;
+  uint16_t                           reslen     = 0;
+  int                                sync       = (callback == NULL);
+
+  /* Check input parameter */
+
+  if (!settings)
+    {
+      DBGIF_LOG_ERROR("Input argument is NULL.\n");
+      return -EINVAL;
+    }
+
+  ret = altcombs_check_psm(settings);
+  if (0 > ret)
+    {
+      return ret;
+    }
+
+  /* Check LTE library status */
+
+  ret = altcombs_check_poweron_status();
+  if (0 > ret)
+    {
+      return ret;
+    }
+
+  if (sync)
+    {
+      presbuff = (FAR uint8_t *)&resbuff;
+    }
+  else
+    {
+      /* Setup API callback */
+
+      ret = altcombs_setup_apicallback(APICMDID_SET_PSM, callback,
+                                       setpsm_status_chg_cb);
+      if (0 > ret)
+        {
+          return ret;
+        }
+    }
+
+  /* Allocate API command buffer to send */
+
+  reqbuff = (FAR struct apicmd_cmddat_setpsm_s *)
+              apicmdgw_cmd_allocbuff(APICMDID_SET_PSM, REQ_DATA_LEN);
+  if (!reqbuff)
+    {
+      DBGIF_LOG_ERROR("Failed to allocate command buffer.\n");
+      ret = -ENOMEM;
+      goto errout;
+    }
+
+  reqbuff->set.enable            = settings->enable;
+  reqbuff->set.rat_time.unit     = settings->req_active_time.unit;
+  reqbuff->set.rat_time.time_val = settings->req_active_time.time_val;
+  reqbuff->set.tau_time.unit     = settings->ext_periodic_tau_time.unit;
+  reqbuff->set.tau_time.time_val = settings->ext_periodic_tau_time.time_val;
+
+  /* Send API command to modem */
+
+  ret = apicmdgw_send((FAR uint8_t *)reqbuff, presbuff,
+                      resbufflen, &reslen, SYS_TIMEO_FEVR);
+  altcom_free_cmd((FAR uint8_t *)reqbuff);
+
+  if (0 > ret)
+    {
+      goto errout;
+    }
+
+  ret = 0;
+
+  if (sync)
+    {
+      ret = (LTE_RESULT_OK == resbuff.result) ? 0 : -EPROTO;
+    }
+
+  return ret;
+
+errout:
+  if (!sync)
+    {
+      altcombs_teardown_apicallback(APICMDID_SET_PSM,
+                                    setpsm_status_chg_cb);
+    }
+  return ret;
+}
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: lte_set_psm_sync
+ *
+ * Description:
+ *   Set PSM settings.
+ *
+ * Input Parameters:
+ *   settings PSM settings.
+ *
+ * Returned Value:
+ *   On success, 0 is returned.
+ *   On failure, negative value is returned according to <errno.h>.
+ *
+ ****************************************************************************/
+
+int32_t lte_set_psm_sync(lte_psm_setting_t *settings)
+{
+  return lte_setpsm_impl(settings, NULL);
+}
 
 /****************************************************************************
  * Name: lte_set_psm
@@ -161,124 +288,23 @@ static void setpsm_job(FAR void *arg)
  *   Set PSM settings.
  *
  * Input Parameters:
- *   callback Callback function to notify that set PSM settings is
- *            completed.
+ *   settings PSM settings.
+ *   callback Callback function to notify that PSM settings are completed.
  *
  * Returned Value:
  *   On success, 0 is returned.
- *   On failure, negative value is returned.
+ *   On failure, negative value is returned according to <errno.h>.
  *
  ****************************************************************************/
 
-int32_t lte_set_psm(lte_psm_setting_t *settings, set_psm_cb_t callback)
+int32_t lte_set_psm(lte_psm_setting_t *settings,
+                    set_psm_cb_t callback)
 {
-  int32_t                        ret;
-  struct apicmd_cmddat_setpsm_s *cmddat;
-
-  /* Return error if callback is NULL */
-
-  if (!settings || !callback)
-    {
-      DBGIF_LOG_ERROR("Input argument is NULL.\n");
-      return -EINVAL;
-    }
-
-  if (settings->enable)
-    {
-      if (settings->req_active_time.unit < SETPSM_RAT_UNIT_MIN ||
-        SETPSM_RAT_UNIT_MAX < settings->req_active_time.unit)
-        {
-          DBGIF_LOG1_ERROR("Invalid argument. RAT unit:%d\n", settings->req_active_time.unit);
-          return -EINVAL;
-        }
-
-      if (settings->req_active_time.time_val < SETPSM_TIMER_VAL_MIN ||
-        SETPSM_TIMER_VAL_MAX < settings->req_active_time.time_val)
-        {
-          DBGIF_LOG1_ERROR("Invalid argument. RAT time_val:%d\n", settings->req_active_time.time_val);
-          return -EINVAL;
-        }
-
-      if (settings->ext_periodic_tau_time.unit < SETPSM_TAU_UNIT_MIN ||
-        SETPSM_TAU_UNIT_MAX < settings->ext_periodic_tau_time.unit)
-        {
-          DBGIF_LOG1_ERROR("Invalid argument. TAU unit:%d\n", settings->ext_periodic_tau_time.unit);
-          return -EINVAL;
-        }
-
-      if (settings->ext_periodic_tau_time.time_val < SETPSM_TIMER_VAL_MIN ||
-        SETPSM_TIMER_VAL_MAX < settings->ext_periodic_tau_time.time_val)
-        {
-          DBGIF_LOG1_ERROR("Invalid argument. TAU time_val:%d\n", settings->ext_periodic_tau_time.time_val);
-          return -EINVAL;
-        }
-    }
-
-  /* Check Lte library status */
-
-  ret = altcombs_check_poweron_status();
-  if (0 > ret)
-    {
-      return ret;
-    }
-
-  /* Register API callback */
-
-  ret = altcomcallbacks_chk_reg_cb((void *)callback, APICMDID_SET_PSM);
-  if (0 > ret)
-    {
-      DBGIF_LOG_ERROR("Currently API is busy.\n");
-      return -EINPROGRESS;
-    }
-
-  ret = altcomstatus_reg_statchgcb(setpsm_status_chg_cb);
-  if (0 > ret)
-    {
-      DBGIF_LOG_ERROR("Failed to registration status change callback.\n");
-      altcomcallbacks_unreg_cb(APICMDID_SET_PSM);
-      return ret;
-    }
-
-  /* Allocate API command buffer to send */
-
-  cmddat = (struct apicmd_cmddat_setpsm_s *)apicmdgw_cmd_allocbuff(
-    APICMDID_SET_PSM, SETPSM_DATA_LEN);
-  if (!cmddat)
-    {
-      DBGIF_LOG_ERROR("Failed to allocate command buffer.\n");
-      ret = -ENOMEM;
-    }
-  else
-    {
-      cmddat->enable = settings->enable ?
-        APICMD_SETPSM_ENABLE : APICMD_SETPSM_DISABLE;
-      cmddat->rat_val.unit     = settings->req_active_time.unit;
-      cmddat->rat_val.time_val = settings->req_active_time.time_val;
-      cmddat->tau_val.unit     = settings->ext_periodic_tau_time.unit;
-      cmddat->tau_val.time_val =
-        settings->ext_periodic_tau_time.time_val;
-
-      /* Send API command to modem */
-
-      ret = altcom_send_and_free((FAR uint8_t *)cmddat);
-    }
-
-  /* If fail, there is no opportunity to execute the callback,
-   * so clear it here. */
-
-  if (ret < 0)
-    {
-      /* Clear registered callback */
-
-      altcomcallbacks_unreg_cb(APICMDID_SET_PSM);
-      altcomstatus_unreg_statchgcb(setpsm_status_chg_cb);
-    }
-  else
-    {
-      ret = 0;
-    }
-
-  return ret;
+  if (!callback) {
+    DBGIF_LOG_ERROR("Input argument is NULL.\n");
+    return -EINVAL;
+  }
+  return lte_setpsm_impl(settings, callback);
 }
 
 /****************************************************************************

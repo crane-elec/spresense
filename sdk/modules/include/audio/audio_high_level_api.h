@@ -70,16 +70,17 @@
 #  include "audio/audio_frontend_api.h"
 #  include "audio/audio_capture_api.h"
 #endif
-#if defined(CONFIG_AUDIOUTILS_VOICE_CALL) || defined(CONFIG_AUDIOUTILS_VOICE_COMMAND)
-#  include "audio/audio_effector_api.h"
+#ifdef CONFIG_AUDIOUTILS_SOUND_RECOGNIZER
+#  include "audio/audio_frontend_api.h"
+#  include "audio/audio_recognizer_api.h"
 #  include "audio/audio_renderer_api.h"
 #  include "audio/audio_capture_api.h"
 #endif
-#ifdef CONFIG_AUDIOUTILS_VOICE_COMMAND
-#  include "audio/audio_recognizer_api.h"
-#  include "audio/audio_effector_api.h"
+#ifdef CONFIG_AUDIOUTILS_SYNTHESIZER
+#  include "audio/audio_player_api.h"
+#  include "audio/audio_synthesizer_api.h"
+#  include "audio/audio_outputmix_api.h"
 #  include "audio/audio_renderer_api.h"
-#  include "audio/audio_capture_api.h"
 #endif
 
 #include <stdint.h>
@@ -120,6 +121,10 @@
 /*! \brief SetRecorderStatus command (#AUDCMD_SETRECORDERSTATUS) packet length */
 
 #define LENGTH_SET_RECORDER_STATUS  4
+
+/*! \brief SetRecorderStatus command (#AUDCMD_SETRECOGNIZERSTATUS) packet length */
+
+#define LENGTH_SET_RECOGNIZER_STATUS  4
 
 /*! \brief SetBaseBandStatus command (#AUDCMD_SETBASEBANDSTATUS) packet length */
 
@@ -474,6 +479,10 @@
 
 #define AS_ECODE_OBJECT_NOT_AVAILABLE_ERROR      0x3E
 
+/*! \brief Oscillator Library Initialize Error */
+
+#define AS_ECODE_OSCILLATOR_LIB_INITIALIZE_ERROR 0x3F
+
 /** @} */
 
 /****************************************************************************
@@ -628,7 +637,8 @@ typedef struct
   uint16_t reserved2;
 } InitOutputSelectParam;
 
-/** (__not supported__) InitDNCParam Command (#AUDCMD_INITDNCPARAM) parameter
+/** \brief InitDNCParam Command (#AUDCMD_INITDNCPARAM) parameter
+ *  \deprecated It will be removed in the future
  */
 
 typedef enum
@@ -661,7 +671,7 @@ typedef struct {
   /*! \brief [in] Set ClearStero Volume
    *
    * -825:-82.5dB(default), ... -195:-19.5dB,
-   * #AS_ CS_VOL_HOLD:keep setting
+   * #AS_CS_VOL_HOLD:keep setting
    */
 
   int16_t cs_vol;
@@ -809,7 +819,9 @@ typedef enum
 
   AS_DISABLE_SOUNDEFFECT = 0,
 
-  /*! \brief Enable effect sound (__not supported__) */
+  /*! \brief Enable effect sound
+   *  \deprecated It will be removed in the future
+   */
 
   AS_ENABLE_SOUNDEFFECT,
   AS_SOUNDEFFECT_NUM
@@ -905,6 +917,22 @@ typedef struct
 
 #ifdef AS_FEATURE_OUTPUTMIX_ENABLE
 
+/* Init OutputMixer Command (#AUDCMD_INIT_OUTPUTMIXER) */
+
+typedef struct
+{
+  uint8_t  player_id;
+
+  /*! \brief [in] Set postproc type. Use AsPostprocType enum type */
+
+  uint8_t postproc_type;
+
+  /*! \brief [in] Set dsp file name and path */
+
+  char dsp_path[AS_POSTPROC_FILE_PATH_LEN];
+
+} AsInitMixerParam;
+
 /** Request Clock Recovery Command (#AUDCMD_CLKRECOVERY) parameter */
 
 typedef struct
@@ -943,36 +971,122 @@ typedef struct
 
 #ifdef AS_FEATURE_FRONTEND_ENABLE
 
-/** EnablePreProc Command (#AUDCMD_SETMFETYPE) parameter */
+typedef enum
+{
+  /*! \brief [in] Send audio data to Recorder
+   */
+
+  AsMicFrontendDataToRecorder = 0,
+
+  /*! \brief [in] Send audio data to Recognizer
+   */
+
+  AsMicFrontendDataToRecognizer,
+
+} AsFrontendDataDest;
+
+/** Initialize Command (#AUDCMD_INIT_MICFRONTEND) parameter */
 
 typedef struct
 {
-  /*! \brief [in] Set pre process type 
+  /*! \brief [in] Select InitMicFrontend input channels
+   */
+
+  uint8_t  ch_num;
+
+  /*! \brief [in] Select InitMicFrontend input bit length
+   */
+
+  uint8_t  bit_length;
+
+  /*! \brief [in] Samples per a frame
+   */
+
+  uint16_t samples;
+
+  /*! \brief [in] Output Fs
+   *
+   * !! effective only when preproc_type is "AsMicFrontendPreProcSrc" !!
+   */
+
+  uint32_t out_fs;
+
+  /*! \brief [in] Select pre process enable 
    *
    * Use #AsMicFrontendPreProcType enum type
    */
 
-  uint32_t  preproc_type;
+  uint8_t  preproc_type;
+
+  /*! \brief [in] Set dsp file name and path 
+   */
+
+  char preprocess_dsp_path[AS_PREPROCESS_FILE_PATH_LEN];
+
+  /*! \brief [in] Select Data path from MicFrontend 
+   *
+   * Use #AsMicFrontendDataDest enum type
+   */
+
+  uint8_t data_dest;
   
-} AsSetMicFrontEndType;
-
-/** InitMfe Command (#AUDCMD_INITMFE) parameter */
-
-typedef struct
-{
-  AsInitPreProcParam initpre_param;
-
 } AsInitMicFrontEnd;
 
-/** SetMfe Command (#AUDCMD_SETMFE) parameter */
+#endif
+
+#ifdef AS_FEATURE_RECOGNIZER_ENABLE
+
+/** SetRecognizerStatus Command (#AUDCMD_SETRECOGNIZERSTATUS) parameter */
 
 typedef struct
 {
-  AsSetPreProcParam setpre_param;
+  /*! \brief [in] Select Recorder input device
+   *
+   * Use #AsMicFrontendInputDevice enum type
+   */
 
-} AsSetMicFrontEnd;
+  uint8_t  input_device;
 
-#endif
+} AsSetRecognizerStatus;
+
+/** InitVoiceCommand Command (#AUDCMD_INIT_RECOGNIZER) parameter */
+
+typedef void (*RecognizerFindCallback)(AsRecognitionInfo info);
+
+typedef struct
+{
+  /*! \brief [in] Recognizer type 
+   */
+
+  uint8_t recognizer_type;
+
+  /*! \brief [in] Recognizer file name and path 
+   */
+
+  char recognizer_dsp_path[AS_RECOGNIZER_FILE_PATH_LEN];
+
+  /*! \brief [in] Recognizer find callback */
+
+  RecognizerFindCallback fcb;
+
+} AsInitRecognizer;
+
+/** StartVoiceCommand Command (#AUDCMD_START_RECOGNIZER) parameter */
+
+typedef struct
+{
+  uint32_t reserve;
+
+} AsStartRecognizer;
+
+/** StopVoiceCommand Command (#AUDCMD_STOP_RECOGNIZER) parameter */
+
+typedef struct
+{
+  uint32_t reserve;
+
+} AsStopRecognizer;
+#endif /* AS_FEATURE_RECOGNIZER_ENABLE */
 
 /** Audio command packet */
 
@@ -988,20 +1102,23 @@ typedef struct
   union
   {
 #ifdef AS_FEATURE_EFFECTOR_ENABLE
-    /*! \brief [in] for StartBB (__not supported__)
+    /*! \brief [in] for StartBB
      * (header.command_code==#AUDCMD_STARTBB)
+     *  \deprecated It will be removed in the future
      */
 
     StartBBParam start_bb_param;
 
-    /*! \brief [in] for StopBB (__not supported__)
+    /*! \brief [in] for StopBB
      * (header.command_code==#AUDCMD_STOPBB)
+     *  \deprecated It will be removed in the future
      */
 
     StopBBParam stop_bb_param;
 
-    /*! \brief [in] for SetBaseBandStatus (__not supported__)
+    /*! \brief [in] for SetBaseBandStatus
      * (header.command_code==#AUDCMD_SETBASEBANDSTATUS)
+     *  \deprecated It will be removed in the future
      */
 
     SetBaseBandStatusParam set_baseband_status_param;
@@ -1020,6 +1137,12 @@ typedef struct
 
 #endif
 #ifdef AS_FEATURE_OUTPUTMIX_ENABLE
+    /*! \brief [in] for Init OutputMixer 
+     * (header.command_code==#AUDCMD_INIT_OUTPUTMIXER)
+     */
+
+    AsInitMixerParam init_mixer_param;
+
     /*! \brief [in] for Adjust sound period
      * (header.command_code==#AUDCMD_CLKRECOVERY)
      */
@@ -1041,23 +1164,23 @@ typedef struct
 #endif
 #ifdef AS_FEATURE_FRONTEND_ENABLE
 
-    /*! \brief [in] for Enable PreProcess 
-     * (header.command_code==#AUDCMD_SETMFETYPE)
+    /*! \brief [in] for InitMicFrontend 
+     * (header.command_code==#AUDCMD_INIT_MICFRONTEND)
      */
 
-    AsSetMicFrontEndType set_mfetype_param;
+    AsInitMicFrontEnd init_micfrontend_param;
 
-    /*! \brief [in] for InitMFE
-     * (header.command_code==#AUDCMD_INITMFE)
+    /*! \brief [in] for InitPreProcessDSP
+     * (header.command_code==#AUDCMD_INIT_PREPROCESS_DSP)
      */
 
-    AsInitMicFrontEnd init_mfe_param;
+    AsInitPreProcParam init_preproc_param;
 
-    /*! \brief [in] for SetMFE
-     * (header.command_code==#AUDCMD_SETMFEPARAM)
+    /*! \brief [in] for SetPreProcessDSP
+     * (header.command_code==#AUDCMD_SET_PREPROCESS_DSP)
      */
 
-    AsSetMicFrontEnd set_mfe_param;
+    AsSetPreProcParam set_preproc_param;
 
 #endif
 #ifdef AS_FEATURE_RECORDER_ENABLE
@@ -1075,11 +1198,43 @@ typedef struct
 
 #endif
 #ifdef AS_FEATURE_RECOGNIZER_ENABLE
-    /*! \brief [in] for StratVoiceCommand (__not supported__)
-     * (header.command_code==#AUDCMD_STARTVOICECOMMAND)
+
+    /*! \brief [in] for SetRecognizerStatus 
+     * (header.command_code==#AUDCMD_SETRECOGNIZERSTATUS)
      */
 
-    StartVoiceCommandParam start_voice_command_param;
+    AsSetRecognizerStatus set_recognizer_status_param;
+
+    /*! \brief [in] for InitVoiceCommand
+     * (header.command_code==#AUDCMD_INIT_RECOGNIZER)
+     */
+
+    AsInitRecognizer init_recognizer;
+
+    /*! \brief [in] for StratVoiceCommand
+     * (header.command_code==#AUDCMD_START_RECOGNIZER)
+     */
+
+    AsStartRecognizer start_recognizer;
+
+    /*! \brief [in] for StopVoiceCommand
+     * (header.command_code==#AUDCMD_STOP_RECOGNIZER)
+     */
+
+    AsStopRecognizer stop_recognizer;
+
+    /*! \brief [in] for InitRecognizerDSPCommand 
+     * (header.command_code==#AUDCMD_INIT_RECOGNIZER_DSP)
+     */
+
+    AsInitRecognizerProcParam init_rcg_param;
+
+    /*! \brief [in] for SetRecognizerDSPCommand 
+     * (header.command_code==#AUDCMD_SET_RECOGNIZER_DSP)
+     */
+
+    AsSetRecognizerProcParam set_rcg_param;
+
 #endif
 
     /*! \brief [in] for SetMicMap
@@ -1094,8 +1249,9 @@ typedef struct
 
     InitMicGainParam init_mic_gain_param;
 
-    /*! \brief [in] for InitI2SParam (__not supported__)
+    /*! \brief [in] for InitI2SParam
      * (header.command_code==#AUDCMD_INITI2SPARAM)
+     *  \deprecated It will be removed in the future
      */
 
     InitI2SParam init_i2s_param;
@@ -1106,14 +1262,16 @@ typedef struct
 
     InitOutputSelectParam init_output_select_param;
 
-    /*! \brief [in] for InitDNCParam (__not supported__)
+    /*! \brief [in] for InitDNCParam
      * (header.command_code==#AUDCMD_INITDNCPARAM)
+     *  \deprecated It will be removed in the future
      */
 
     InitDNCParam init_dnc_param;
 
-    /*! \brief [in] for InitClearStereo (__not supported__)
+    /*! \brief [in] for InitClearStereo
      * (header.command_code==#AUDCMD_INITCLEARSTEREO)
+     *  \deprecated It will be removed in the future
      */
 
     InitClearStereoParam init_clear_stereo_param;
@@ -1203,6 +1361,10 @@ typedef enum
 
   AS_MNG_STATUS_RECORDER,
 
+  /*! \brief Recorder */
+
+  AS_MNG_STATUS_RECOGNIZER,
+
   /*! \brief PowerOff */
 
   AS_MNG_STATUS_POWEROFF,
@@ -1241,6 +1403,14 @@ typedef enum
   /*! \brief RecorderActive */
 
   AS_MNG_SUB_STATUS_RECORDERACTIVE,
+
+  /*! \brief RecognizerReady */
+
+  AS_MNG_SUB_STATUS_RECOGNIZERREADY,
+
+  /*! \brief RecognizerActive */
+
+  AS_MNG_SUB_STATUS_RECOGNIZERACTIVE,
 
   /*! \brief BaseBandReady */
 
@@ -1303,79 +1473,7 @@ typedef enum
   AS_STATUS_CHANGED_STS_NUM
 } AsStatusChangedSts;
 
-/** Audio Module ID */
 
-/** @defgroup module_id_code Module ID */
-/** @{ */
-
-typedef enum
-{
-  /*! \brief Audio Manager Module ID */
-
-  AS_MODULE_ID_AUDIO_MANAGER = 0,
-
-  /*! \brief Audio Baseband Driver Module ID */
-  AS_MODULE_ID_AUDIO_DRIVER,
-
-  /*! \brief FrontEnd Object ID */
-
-  AS_MODULE_ID_MIC_FRONTEND_OBJ,
-
-  /*! \brief Input Data Manager Object ID */
-
-  AS_MODULE_ID_INPUT_DATA_MNG_OBJ,
-
-  /*! \brief Media Recorder Object ID */
-
-  AS_MODULE_ID_MEDIA_RECORDER_OBJ,
-
-  /*! \brief Output Mix Object ID */
-
-  AS_MODULE_ID_OUTPUT_MIX_OBJ,
-
-  /*! \brief Player Object ID */
-
-  AS_MODULE_ID_PLAYER_OBJ,
-
-  /*! \brief Recognition Object ID */
-
-  AS_MODULE_ID_RECOGNITION_OBJ,
-
-  /*! \brief Sound Effect Object ID */
-
-  AS_MODULE_ID_SOUND_EFFECT_OBJ,
-
-  /*! \brief Capture Component ID */
-
-  AS_MODULE_ID_CAPTURE_CMP,
-
-  /*! \brief Decoder Component ID */
-
-  AS_MODULE_ID_DECODER_CMP,
-
-  /*! \brief Encoder Component ID */
-
-  AS_MODULE_ID_ENCODER_CMP,
-
-  /*! \brief Filter Component ID */
-
-  AS_MODULE_ID_FILTER_CMP,
-
-  /*! \brief Recognition Component ID */
-
-  AS_MODULE_ID_RECOGNITION_CMP,
-
-  /*! \brief Renderer Component ID */
-
-  AS_MODULE_ID_RENDERER_CMP,
-
-  /*! \brief Postfilter Component ID */
-
-  AS_MODULE_ID_POSTPROC_CMP,
-  AS_MODULE_ID_NUM,
-} AsModuleId;
-
-/** @} */
 
 /** Audio Manager error code */
 
@@ -1633,6 +1731,22 @@ int AS_SendAudioCommand(AudioCommand* packet);
  */
 
 int AS_ReceiveAudioResult(AudioResult* packet);
+
+/**
+ * @brief Receive Audio Result for multithread
+ *
+ * @param[out] packet: AudioResult*: Result packet
+ *
+ * @param[in] rply: Request message id
+ *
+ * @param[in] id: AsPlayerId
+ *
+ * @param[in] tmo: Timeout (ms)
+ *
+ * @retval error code
+ */
+
+int AS_ReceiveAudioResult(FAR AudioResult *packet, uint8_t id, uint32_t tmo);
 
 /**
  * @brief Activate AudioSubSystem

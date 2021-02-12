@@ -114,7 +114,7 @@ int NMEA_RegistOutputFunc(FAR const NMEA_OUTPUT_CB *func);
  * ___
  * ### Mask description
  *
- * - Defult value 0x000000ef.
+ * - Default value 0x000000ef.
  * - Bits not listed below are reserved.
  *
  * |bit |sentence|
@@ -127,7 +127,7 @@ int NMEA_RegistOutputFunc(FAR const NMEA_OUTPUT_CB *func);
  * |bit5|RMC|
  * |bit6|VTG|
  * |bit7|ZDA|
- * |bit22|QZQSM|
+ * |bit14|QZQSM|
  *
  */
 
@@ -157,6 +157,15 @@ uint16_t NMEA_Output(FAR const struct cxd56_gnss_positiondata_s* pposdat);
  */
 uint16_t NMEA_DcReport_Output(const struct cxd56_gnss_dcreport_data_s* dcrdat);
 
+/*
+ * Output GAL SAR/RLM sentence
+ * @param[in] dat : Galileo SAR/RLM data
+ * @retval >0 : success, output total sentence size
+ * @retval <0 : fail
+ */
+
+uint16_t NMEA_GalSarRlm_Output(const struct cxd56_gnss_gal_sarrlm_s* dat);
+
 /**
  * Output Spectrum data as TEXT sentence
  * @param[in] spectrumdat : Spectrum data output from GNSS
@@ -167,7 +176,7 @@ uint16_t NMEA_DcReport_Output(const struct cxd56_gnss_dcreport_data_s* dcrdat);
 uint16_t NMEA_OutputSpectrum(FAR NMEA_SPECTRUM_DATA *spectrumdat);
 
 /*
- * Extract raw data from postion data
+ * Extract raw data from position data
  * @param[in] pposdat : Position data output from GNSS
  * @param[out] rawdat : Extracted raw data
  * @retval 0 : success

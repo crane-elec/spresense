@@ -44,13 +44,14 @@
 #include "memutils/message/Message.h"
 #include "memutils/s_stl/queue.h"
 #include "memutils/memory_manager/MemHandle.h"
-#include "audio/audio_high_level_api.h"
 #include "audio/audio_message_types.h"
+#include "audio/audio_frontend_api.h"
 #include "audio_state.h"
 
 #include "components/capture/capture_component.h"
 #include "components/customproc/usercustom_component.h"
 #include "components/customproc/thruproc_component.h"
+#include "components/filter/src_filter_component.h"
 
 __WIEN2_BEGIN_NAMESPACE
 
@@ -69,7 +70,7 @@ __WIEN2_BEGIN_NAMESPACE
 
 struct MicFrontendObjPreProcDoneCmd
 {
-  CustomProcEventType event_type;
+  ComponentEventType event_type;
   bool                result;
 };
 
@@ -92,9 +93,9 @@ private:
     : m_msgq_id(msgq_id)
     , m_pool_id(pool_id)
     , m_state(AS_MODULE_ID_MIC_FRONTEND_OBJ, "", MicFrontendStateInactive)
-    , m_preproc_type(AsMicFrontendPreProcThrough)
+    , m_preproc_type(AsMicFrontendPreProcInvalid)
     , m_channel_num(2)
-    , m_pcm_bit_width(AudPcm16Bit)
+    , m_pcm_bit_width(AudPcmFormatInt16)
     , m_samples_per_frame(768)
     , m_cap_bytes(2)  /* This value depends on the value of
                        * m_pcm_bit_width.
@@ -103,7 +104,10 @@ private:
     , m_capture_req(0)
     , m_preproc_req(0)
     , m_p_preproc_instance(NULL)
-  {}
+    , m_callback(NULL)
+  {
+    memset(m_dsp_path, 0, sizeof(m_dsp_path));
+  }
 
   enum MicFrontendState_e
   {
@@ -123,8 +127,9 @@ private:
   AsMicFrontendDataPath m_pcm_data_path;
   AsDataDest m_pcm_data_dest;
   AsMicFrontendPreProcType m_preproc_type;
+  char m_dsp_path[AS_PREPROCESS_FILE_PATH_LEN];
   int8_t  m_channel_num;
-  AudioPcmBitWidth m_pcm_bit_width;
+  uint8_t m_pcm_bit_width;
   uint32_t m_samples_per_frame;
   int8_t  m_cap_bytes;
   int32_t m_max_output_size;
@@ -134,10 +139,11 @@ private:
   uint32_t m_capture_req;
   uint32_t m_preproc_req;
 
-  CustomProcBase *m_p_preproc_instance;
+  ComponentBase *m_p_preproc_instance;
 
   typedef void (MicFrontEndObject::*MsgProc)(MsgPacket *);
   static MsgProc MsgProcTbl[AUD_MFE_MSG_NUM][MicFrontendStateNum];
+  static MsgProc MsgParamTbl[AUD_MFE_PRM_NUM][MicFrontendStateNum];
   static MsgProc RsltProcTbl[AUD_MFE_RST_MSG_NUM][MicFrontendStateNum];
 
   s_std::Queue<AsMicFrontendEvent, 1> m_external_cmd_que;
@@ -160,6 +166,8 @@ private:
   void stopOnActive(MsgPacket *);
   void stopOnErrorStop(MsgPacket *);
   void stopOnWait(MsgPacket *);
+  void set(MsgPacket *msg);
+
   void initPreproc(MsgPacket *msg);
   void setPreproc(MsgPacket *msg);
   void setMicGain(MsgPacket *);
@@ -182,13 +190,14 @@ private:
   void captureErrorOnErrorStop(MsgPacket *);
   void captureErrorOnWaitStop(MsgPacket *);
 
+  uint32_t loadComponent(AsMicFrontendPreProcType type, char *dsp_path);
+  uint32_t unloadComponent(void);
+
   bool startCapture();
 
   bool setExternalCmd(AsMicFrontendEvent ext_event);
   AsMicFrontendEvent getExternalCmd(void);
   uint32_t checkExternalCmd(void);
-
-  MemMgrLite::MemHandle getOutputBufAddr();
 
   uint32_t activateParamCheck(const AsActivateFrontendParam& cmd);
   uint32_t initParamCheck(const MicFrontendCommand& cmd);

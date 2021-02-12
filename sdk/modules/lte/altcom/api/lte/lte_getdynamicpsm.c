@@ -54,7 +54,8 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define GET_DYNAMICPSM_DATA_LEN (0)
+#define REQ_DATA_LEN (0)
+#define RES_DATA_LEN (sizeof(struct apicmd_cmddat_getdynamicpsmres_s))
 
 /****************************************************************************
  * Private Functions
@@ -111,8 +112,9 @@ static void get_dynamicpsm_job(FAR void *arg)
   lte_psm_setting_t                           psm_set;
 
   data = (FAR struct apicmd_cmddat_getdynamicpsmres_s *)arg;
+
   ret = altcomcallbacks_get_unreg_cb(APICMDID_GET_DYNAMICPSM,
-    (void **)&callback);
+                                     (void **)&callback);
   if ((0 != ret) || (!callback))
     {
       DBGIF_LOG_ERROR("Unexpected!! callback is NULL.\n");
@@ -120,25 +122,19 @@ static void get_dynamicpsm_job(FAR void *arg)
   else
     {
       memset(&psm_set, 0, sizeof(lte_psm_setting_t));
-      if (APICMD_GETDYNAMICPSM_RES_OK == data->result)
+
+      if (LTE_RESULT_OK == data->result)
         {
-          ret = altcombs_check_psm(&data->set);
+          altcombs_set_psm(&data->set, &psm_set);
+
+          ret = altcombs_check_psm(&psm_set);
           if (0 > ret)
             {
-              DBGIF_LOG1_ERROR("Unexpected!! altcombs_check_psm() failed. errno:%d\n", ret);
+              DBGIF_LOG1_ERROR("altcombs_check_psm() failed: %d\n", ret);
             }
           else
             {
-              ret = altcombs_set_psm(&data->set, &psm_set);
-              if (0 > ret)
-                {
-                  DBGIF_LOG1_ERROR("Unexpected!! altcombs_set_psm() failed. errno:%d\n", ret);
-                  result = LTE_RESULT_ERROR;
-                }
-              else
-                {
-                  result = LTE_RESULT_OK;
-                }
+              result = LTE_RESULT_OK;
             }
         }
 
@@ -157,39 +153,44 @@ static void get_dynamicpsm_job(FAR void *arg)
 }
 
 /****************************************************************************
- * Public Functions
- ****************************************************************************/
-
-/****************************************************************************
- * Name: lte_get_dynamic_psm_param
+ * Name: lte_getcurrentpsm_impl
  *
  * Description:
- *   Get PSM dynamic parameter.
+ *   Get current PSM settings.
  *
  * Input Parameters:
- *   callback Callback function to notify that
- *   get PSM dynamic parameter completed.
+ *   settings Current PSM settings.
+ *   callback Callback function to notify when getting current PSM settings
+ *            is completed.
+ *            If the callback is NULL, operates with synchronous API,
+ *            otherwise operates with asynchronous API.
  *
  * Returned Value:
  *   On success, 0 is returned.
- *   On failure, negative value is returned.
+ *   On failure, negative value is returned according to <errno.h>.
  *
  ****************************************************************************/
 
-int32_t lte_get_dynamic_psm_param(get_dynamic_psm_param_cb_t callback)
+static int32_t lte_getcurrentpsm_impl(lte_psm_setting_t *settings,
+                                      get_current_psm_cb_t callback)
 {
-  int32_t     ret;
-  FAR uint8_t *cmdbuff;
+  int32_t                                  ret;
+  FAR uint8_t                             *reqbuff    = NULL;
+  FAR uint8_t                             *presbuff   = NULL;
+  struct apicmd_cmddat_getdynamicpsmres_s  resbuff;
+  uint16_t                                 resbufflen = RES_DATA_LEN;
+  uint16_t                                 reslen     = 0;
+  int                                      sync       = (callback == NULL);
 
-  /* Return error if callback is NULL */
+  /* Check input parameter */
 
-  if (!callback)
+  if (!settings && !callback)
     {
       DBGIF_LOG_ERROR("Input argument is NULL.\n");
       return -EINVAL;
     }
 
-  /* Check Lte library status */
+  /* Check LTE library status */
 
   ret = altcombs_check_poweron_status();
   if (0 > ret)
@@ -197,57 +198,145 @@ int32_t lte_get_dynamic_psm_param(get_dynamic_psm_param_cb_t callback)
       return ret;
     }
 
-  /* Register API callback */
-
-  ret = altcomcallbacks_chk_reg_cb(callback, APICMDID_GET_DYNAMICPSM);
-  if (0 > ret)
+  if (sync)
     {
-      DBGIF_LOG_ERROR("Currently API is busy.\n");
-      return -EINPROGRESS;
+      presbuff = (FAR uint8_t *)&resbuff;
+    }
+  else
+    {
+      /* Setup API callback */
+
+      ret = altcombs_setup_apicallback(APICMDID_GET_DYNAMICPSM, callback,
+                                       getdynamicpsm_status_chg_cb);
+      if (0 > ret)
+        {
+          return ret;
+        }
     }
 
-  ret = altcomstatus_reg_statchgcb(getdynamicpsm_status_chg_cb);
-  if (0 > ret)
-    {
-      DBGIF_LOG_ERROR("Failed to registration status change callback.\n");
-      altcomcallbacks_unreg_cb(APICMDID_GET_DYNAMICPSM);
-      return ret;
-    }
+  /* Allocate API command buffer to send */
 
-  /* Accept the API
-   * Allocate API command buffer to send */
-
-  cmdbuff = (FAR uint8_t *)
-    apicmdgw_cmd_allocbuff(APICMDID_GET_DYNAMICPSM,
-    GET_DYNAMICPSM_DATA_LEN);
-  if (!cmdbuff)
+  reqbuff = (FAR uint8_t *)apicmdgw_cmd_allocbuff(APICMDID_GET_DYNAMICPSM,
+                                                  REQ_DATA_LEN);
+  if (!reqbuff)
     {
       DBGIF_LOG_ERROR("Failed to allocate command buffer.\n");
       ret = -ENOMEM;
-    }
-  else
-    {
-      /* Send API command to modem */
-
-      ret = altcom_send_and_free(cmdbuff);
+      goto errout;
     }
 
-  /* If fail, there is no opportunity to execute the callback,
-   * so clear it here. */
+  /* Send API command to modem */
+
+  ret = apicmdgw_send(reqbuff, presbuff,
+                      resbufflen, &reslen, SYS_TIMEO_FEVR);
+  altcom_free_cmd(reqbuff);
 
   if (0 > ret)
     {
-      /* Clear registered callback */
-
-      altcomcallbacks_unreg_cb(APICMDID_GET_DYNAMICPSM);
-      altcomstatus_unreg_statchgcb(getdynamicpsm_status_chg_cb);
+      goto errout;
     }
-  else
+
+  ret = 0;
+
+  if (sync)
     {
-      ret = 0;
+      ret = (LTE_RESULT_OK == resbuff.result) ? 0 : -EPROTO;
+      if (0 == ret)
+        {
+          /* Parse PSM settings */
+
+          ret = altcombs_set_psm(&resbuff.set, settings);
+          if (0 > ret)
+            {
+              DBGIF_LOG1_ERROR("altcombs_set_psm() failed: %d\n", ret);
+              ret = -EFAULT;
+            }
+        }
     }
 
   return ret;
+
+errout:
+  if (!sync)
+    {
+      altcombs_teardown_apicallback(APICMDID_GET_DYNAMICPSM,
+                                    getdynamicpsm_status_chg_cb);
+    }
+  return ret;
+}
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: lte_get_dynamic_psm_param
+ *
+ * Description:
+ *   Get current PSM settings.
+ *
+ * Input Parameters:
+ *   callback Callback function to notify when getting current PSM settings
+ *            is completed.
+ *
+ * Returned Value:
+ *   On success, 0 is returned.
+ *   On failure, negative value is returned according to <errno.h>.
+ *
+ ****************************************************************************/
+
+int32_t lte_get_dynamic_psm_param(get_dynamic_psm_param_cb_t callback)
+{
+  if (!callback) {
+    DBGIF_LOG_ERROR("Input argument is NULL.\n");
+    return -EINVAL;
+  }
+  return lte_getcurrentpsm_impl(NULL, callback);
+}
+
+/****************************************************************************
+ * Name: lte_get_current_psm_sync
+ *
+ * Description:
+ *   Get current PSM settings.
+ *
+ * Input Parameters:
+ *   settings Current PSM settings.
+ *
+ * Returned Value:
+ *   On success, 0 is returned.
+ *   On failure, negative value is returned according to <errno.h>.
+ *
+ ****************************************************************************/
+
+int32_t lte_get_current_psm_sync(lte_psm_setting_t *settings)
+{
+  return lte_getcurrentpsm_impl(settings, NULL);
+}
+
+/****************************************************************************
+ * Name: lte_get_current_psm
+ *
+ * Description:
+ *   Get current PSM settings.
+ *
+ * Input Parameters:
+ *   callback Callback function to notify when getting current PSM settings
+ *            is completed.
+ *
+ * Returned Value:
+ *   On success, 0 is returned.
+ *   On failure, negative value is returned according to <errno.h>.
+ *
+ ****************************************************************************/
+
+int32_t lte_get_current_psm(get_current_psm_cb_t callback)
+{
+  if (!callback) {
+    DBGIF_LOG_ERROR("Input argument is NULL.\n");
+    return -EINVAL;
+  }
+  return lte_getcurrentpsm_impl(NULL, callback);
 }
 
 /****************************************************************************

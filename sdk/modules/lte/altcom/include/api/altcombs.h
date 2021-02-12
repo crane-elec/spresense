@@ -49,6 +49,7 @@
 #include "apicmd_edrx.h"
 #include "apicmd_psm.h"
 #include "apicmd_quality.h"
+#include "apicmd_cellinfo.h"
 
 /****************************************************************************
  * Public Types
@@ -307,10 +308,10 @@ int32_t altcombs_set_edrx(struct apicmd_edrxset_s *cmd_edrx,
  * Name: altcombs_check_psm
  *
  * Description:
- *   Check api comand PSM param.
+ *   Check PSM parameter of LTE API.
  *
  * Input Parameters:
- *   set    Pointer of api command PSM struct.
+ *   api_set  Pointer to PSM parameter of LTE API.
  *
  * Returned Value:
  *   When check success is returned 0.
@@ -318,17 +319,17 @@ int32_t altcombs_set_edrx(struct apicmd_edrxset_s *cmd_edrx,
  *
  ****************************************************************************/
 
-int32_t altcombs_check_psm(struct apicmd_cmddat_psm_set_s *set);
+int32_t altcombs_check_psm(FAR lte_psm_setting_t *api_set);
 
 /****************************************************************************
  * Name: altcombs_set_psm
  *
  * Description:
- *   Set lte_psm_setting_t param.
+ *   Set to PSM parameter from API command.
  *
  * Input Parameters:
- *   cmd_psm    Pointer of api command PSM struct.
- *   lte_psm    Pointer of lte_psm_setting_t.
+ *   cmd_set    Pointer to PSM parameter of API command.
+ *   api_set    Pointer to PSM parameter of LTE API.
  *
  * Returned Value:
  *   When set success is returned 0.
@@ -336,8 +337,8 @@ int32_t altcombs_check_psm(struct apicmd_cmddat_psm_set_s *set);
  *
  ****************************************************************************/
 
-int32_t altcombs_set_psm(struct apicmd_cmddat_psm_set_s *cmd_psm,
-  lte_psm_setting_t *lte_psm);
+int32_t altcombs_set_psm(FAR struct apicmd_cmddat_psm_set_s *cmd_set,
+                         FAR lte_psm_setting_t *api_set);
 
 /****************************************************************************
  * Name: altcombs_set_quality
@@ -357,5 +358,61 @@ int32_t altcombs_set_psm(struct apicmd_cmddat_psm_set_s *cmd_psm,
 
 int32_t altcombs_set_quality(FAR lte_quality_t *data,
           FAR struct apicmd_cmddat_quality_s *cmd_quality);
+
+/****************************************************************************
+ * Name: altcombs_set_cellinfo
+ *
+ * Description:
+ *   Set lte_cellinfo_t.
+ *
+ * Input Parameters:
+ *   cmd_cellinfo  Pointer of api command cellinfo struct.
+ *   api_cellinfo  Pointer of lte_cellinfo_t.
+ *
+ * Returned Value:
+ *   When check success is returned 0.
+ *   When check failed return negative value.
+ *
+ ****************************************************************************/
+
+void altcombs_set_cellinfo(FAR struct apicmd_cmddat_cellinfo_s *cmd_cellinfo,
+                           FAR lte_cellinfo_t *api_cellinfo);
+
+/****************************************************************************
+ * Name: altcombs_setup_apicallback
+ *
+ * Description:
+ *   Setup the callback of API.
+ *
+ * Input Parameters:
+ *   id       API command ID.
+ *   api_cb   Pointer of API callback to register.
+ *   stat_cb  Pointer of state change callback to register.
+ *
+ * Returned Value:
+ *   If the process succeeds, it returns 0.
+ *   Otherwise negative value is returned.
+ *
+ ****************************************************************************/
+
+int32_t altcombs_setup_apicallback(int32_t id, FAR void *api_cb,
+                                   altcom_stat_chg_cb_t stat_cb);
+
+/****************************************************************************
+ * Name: altcombs_teardown_apicallback
+ *
+ * Description:
+ *   Teardown the callback of API.
+ *
+ * Input Parameters:
+ *   id       API command ID.
+ *   stat_cb  Pointer of state change callback to register.
+ *
+ * Returned Value:
+ *   None.
+ *
+ ****************************************************************************/
+
+void altcombs_teardown_apicallback(int32_t id, altcom_stat_chg_cb_t stat_cb);
 
 #endif /* __MODULES_LTE_ALTCOM_INCLUDE_API_ALTCOMBS_H */

@@ -13,9 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name NuttX nor Sony nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+ *    the names of its contributors may be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -38,6 +39,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include "mbedtls/ssl.h"
 
 /****************************************************************************
@@ -63,7 +65,8 @@
 int32_t mbedtls_load_local_file(const char *path, unsigned char **buf, size_t *len)
 {
   FILE *fd;
-  long size;
+  size_t size;
+  fpos_t end_pos = 0;
 
   /* Check file size */
 
@@ -73,12 +76,20 @@ int32_t mbedtls_load_local_file(const char *path, unsigned char **buf, size_t *l
     }
 
   fseek(fd, 0, SEEK_END);
-  if ((size = ftell(fd)) == -1)
+  if (0 != fgetpos(fd, &end_pos))
     {
       fclose(fd);
       return(MBEDTLS_ERR_PK_FILE_IO_ERROR);
     }
   fseek(fd, 0, SEEK_SET);
+
+  if (end_pos <= 0)
+    {
+      fclose(fd);
+      return(MBEDTLS_ERR_PK_FILE_IO_ERROR);
+    }
+
+  size = end_pos;
 
   /* Malloc buffer */
 

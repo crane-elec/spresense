@@ -39,18 +39,22 @@
 
 #include "msgq_id.h"
 
-extern const MsgQueDef MsgqPoolDefs[NUM_MSGQ_POOLS] = {
-   /* n_drm, n_size, n_num, h_drm, h_size, h_num */
+extern const MsgQueDef MsgqPoolDefs[NUM_MSGQ_POOLS] =
+{
+  /* n_drm, n_size, n_num, h_drm, h_size, h_num */
+
   { 0x00000000, 0, 0, 0x00000000, 0, 0, 0 }, /* MSGQ_NULL */
-  { 0xfd2a8, 88, 30, 0xffffffff, 0, 0 }, /* MSGQ_AUD_MGR */
-  { 0xfdcf8, 64, 2, 0xffffffff, 0, 0 }, /* MSGQ_AUD_APP */
-  { 0xfdd78, 20, 5, 0xffffffff, 0, 0 }, /* MSGQ_AUD_DSP */
-  { 0xfdddc, 48, 5, 0xffffffff, 0, 0 }, /* MSGQ_AUD_OSCILLATOR */
-  { 0xfdecc, 48, 8, 0xffffffff, 0, 0 }, /* MSGQ_AUD_OUTPUT_MIX */
-  { 0xfe04c, 32, 16, 0xffffffff, 0, 0 }, /* MSGQ_AUD_RND_PLY */
-  { 0xfe24c, 16, 8, 0xffffffff, 0, 0 }, /* MSGQ_AUD_RND_PLY_SYNC */
-  { 0xfe2cc, 20, 5, 0xffffffff, 0, 0 }, /* MSGQ_AUD_PFDSP0 */
-  { 0xfe330, 20, 5, 0xffffffff, 0, 0 }, /* MSGQ_AUD_PFDSP1 */
+  { 0xfd330, 88, 30, 0xffffffff, 0, 0 }, /* MSGQ_AUD_MGR */
+  { 0xfdd80, 64, 2, 0xffffffff, 0, 0 }, /* MSGQ_AUD_APP */
+  { 0xfde00, 20, 5, 0xffffffff, 0, 0 }, /* MSGQ_AUD_DSP */
+  { 0xfde64, 88, 30, 0xffffffff, 0, 0 }, /* MSGQ_AUD_SYNTHESIZER */
+  { 0xfe8b4, 48, 8, 0xffffffff, 0, 0 }, /* MSGQ_AUD_OUTPUT_MIX */
+  { 0xfea34, 32, 16, 0xffffffff, 0, 0 }, /* MSGQ_AUD_RND_PLY0 */
+  { 0xfec34, 16, 8, 0xffffffff, 0, 0 }, /* MSGQ_AUD_RND_PLY0_SYNC */
+  { 0xfecb4, 32, 16, 0xffffffff, 0, 0 }, /* MSGQ_AUD_RND_PLY1 */
+  { 0xfeeb4, 16, 8, 0xffffffff, 0, 0 }, /* MSGQ_AUD_RND_PLY1_SYNC */
+  { 0xfef34, 20, 5, 0xffffffff, 0, 0 }, /* MSGQ_AUD_PFDSP0 */
+  { 0xfef98, 20, 5, 0xffffffff, 0, 0 }, /* MSGQ_AUD_PFDSP1 */
 };
 
 #endif /* MSGQ_POOL_H_INCLUDED */

@@ -13,9 +13,10 @@
 #    notice, this list of conditions and the following disclaimer in
 #    the documentation and/or other materials provided with the
 #    distribution.
-# 3. Neither the name NuttX nor Sony nor the names of its contributors
-#    may be used to endorse or promote products derived from this software
-#    without specific prior written permission.
+# 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+#    the names of its contributors may be used to endorse or promote
+#    products derived from this software without specific prior written
+#    permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -33,21 +34,18 @@
 ############################################################################
 
 -include $(TOPDIR)/Make.defs
--include $(SDKDIR)/Make.defs
+include $(SDKDIR)/Make.defs
 
 # lte_websocket built-in application info
 
-CONFIG_EXAMPLES_LTE_WEBSOCKET_PRIORITY ?= SCHED_PRIORITY_DEFAULT
-CONFIG_EXAMPLES_LTE_WEBSOCKET_STACKSIZE ?= 2048
-CONFIG_EXAMPLES_LTE_WEBSOCKET_STACKSIZE_IN_USING_MBEDTLS ?= 5120
-
-APPNAME = lte_websocket
-PRIORITY = $(CONFIG_EXAMPLES_LTE_WEBSOCKET_PRIORITY)
+PROGNAME  = $(CONFIG_EXAMPLES_LTE_WEBSOCKET_PROGNAME)
+PRIORITY  = $(CONFIG_EXAMPLES_LTE_WEBSOCKET_PRIORITY)
 ifeq ($(CONFIG_EXTERNALS_MBEDTLS),y)
 STACKSIZE = $(CONFIG_EXAMPLES_LTE_WEBSOCKET_STACKSIZE_IN_USING_MBEDTLS)
 else
 STACKSIZE = $(CONFIG_EXAMPLES_LTE_WEBSOCKET_STACKSIZE)
 endif
+MODULE    = $(CONFIG_EXAMPLES_LTE_WEBSOCKET)
 
 # define
 
@@ -55,12 +53,8 @@ CFLAGS += -DENABLE_SSL
 
 # lte_websocket Example
 
-ASRCS =
-CSRCS += echo_client.c
+CSRCS += echo_client.c chat_client.c
 CSRCS += websocket_lte_connection.c
 MAINSRC = websocket-client.c
-
-CONFIG_EXAMPLES_LTE_WEBSOCKET_PROGNAME ?= lte_websocket$(EXEEXT)
-PROGNAME = $(CONFIG_EXAMPLES_LTE_WEBSOCKET_PROGNAME)
 
 include $(APPDIR)/Application.mk

@@ -13,9 +13,10 @@
 #    notice, this list of conditions and the following disclaimer in
 #    the documentation and/or other materials provided with the
 #    distribution.
-# 3. Neither the name NuttX nor Sony nor the names of its contributors
-#    may be used to endorse or promote products derived from this software
-#    without specific prior written permission.
+# 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+#    the names of its contributors may be used to endorse or promote
+#    products derived from this software without specific prior written
+#    permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -32,26 +33,19 @@
 #
 ############################################################################
 
-# Do not change
-
 -include $(TOPDIR)/Make.defs
 -include $(SDKDIR)/Make.defs
-DELIM ?= $(strip /)
-CXXEXT ?= .cpp
 
-DEPPATH += --dep-path .
-DEPPATH += --dep-path paho.mqtt.embedded-c$(DELIM)MQTTPacket$(DELIM)src
-DEPPATH += --dep-path paho.mqtt.embedded-c$(DELIM)MQTTClient-C$(DELIM)src
-DEPPATH += --dep-path paho.mqtt.embedded-c$(DELIM)MQTTClient-C$(DELIM)src$(DELIM)nuttx
+BIN = libmqtt$(LIBEXT)
 
-VPATH += :.
+ROOTDEPPATH += --dep-path paho.mqtt.embedded-c$(DELIM)MQTTPacket$(DELIM)src
+ROOTDEPPATH += --dep-path paho.mqtt.embedded-c$(DELIM)MQTTClient-C$(DELIM)src
+ROOTDEPPATH += --dep-path paho.mqtt.embedded-c$(DELIM)MQTTClient-C$(DELIM)src$(DELIM)nuttx
+
 VPATH += :paho.mqtt.embedded-c$(DELIM)MQTTPacket$(DELIM)src
 VPATH += :paho.mqtt.embedded-c$(DELIM)MQTTClient-C$(DELIM)src
 VPATH += :paho.mqtt.embedded-c$(DELIM)MQTTClient-C$(DELIM)src$(DELIM)nuttx
 
-# Define
-
-# MQTT
 CSRCS += MQTTClient.c
 CSRCS += MQTTSocket.c
 CSRCS += MQTTSslSocket.c
@@ -66,53 +60,4 @@ CSRCS += MQTTSubscribeServer.c
 CSRCS += MQTTUnsubscribeClient.c
 CSRCS += MQTTUnsubscribeServer.c
 
-AOBJS = $(ASRCS:.S=$(OBJEXT))
-COBJS = $(CSRCS:.c=$(OBJEXT))
-
-SRCS = $(ASRCS) $(CSRCS)
-OBJS = $(AOBJS) $(COBJS)
-
-BIN = libmqtt.a
-
-# Common build
-
-all: $(BIN)
-.PHONY: context depend clean distclean
-
-$(AOBJS): %$(OBJEXT): %.S
-	$(call ASSEMBLE, $<, $@)
-
-$(COBJS): %$(OBJEXT): %.c
-	$(call COMPILE, $<, $@)
-
-$(BIN): $(OBJS)
-	$(call ARCHIVE, $@, $(OBJS))
-
-# Create dependencies
-
-.depend: Makefile $(SRCS)
-	$(Q) $(MKDEP) $(DEPPATH) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
-	$(Q) touch $@
-
-depend: .depend
-
-# context target proceeds before depend. User can be used this rule
-# to prerequisite process (e.g. generate header file).
-
-.context:
-	$(Q) touch $@
-
-context:
-
-clean:
-	$(call DELFILE, $(BIN))
-	$(call CLEAN)
-
-distclean: clean
-	$(call DELFILE, .context)
-	$(call DELFILE, Make.dep)
-	$(call DELFILE, .depend)
-
--include Make.dep
-.PHONY: preconfig
-preconfig:
+include $(APPDIR)/Application.mk

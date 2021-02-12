@@ -44,6 +44,8 @@
 #include "memutils/message/MsgPacket.h"
 #include "memutils/memory_manager/MemHandle.h"
 #include "audio/audio_message_types.h"
+#include "audio/audio_outputmix_api.h"
+#include "audio/audio_object_common_api.h"
 #include "output_mix_sink_device.h"
 #include "wien2_common_defs.h"
 
@@ -68,9 +70,9 @@ public:
 
 private:
   AsOutputMixMsgQueId_t m_msgq_id;
-  static const int HPI2SoutChNum = 2;
 
-  OutputMixToHPI2S m_output_mix_to_hpi2s[HPI2SoutChNum];
+  OutputMixToHPI2S m_output_mix_to_hpi2s_0;
+  OutputMixToHPI2S m_output_mix_to_hpi2s_1;
 
   AsOutputMixDevice m_output_device;
 

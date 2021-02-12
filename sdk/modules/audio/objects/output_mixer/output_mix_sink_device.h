@@ -47,10 +47,13 @@
 #include "memutils/simple_fifo/CMN_SimpleFifo.h"
 #include "memutils/common_utils/common_assert.h"
 #include "audio/audio_message_types.h"
+#include "audio/audio_outputmix_api.h"
+#include "audio/audio_object_common_api.h"
 #include "wien2_internal_packet.h"
 #include "wien2_common_defs.h"
 #include "components/renderer/renderer_component.h"
-#include "components/customproc/postproc_api.h"
+#include "components/customproc/usercustom_component.h"
+#include "components/customproc/thruproc_component.h"
 #include "objects/stream_parser/ram_lpcm_data_source.h"
 #include "objects/stream_parser/mp3_stream_mng.h"
 
@@ -68,7 +71,7 @@ __WIEN2_BEGIN_NAMESPACE
 
 struct OutputMixObjPostfilterDoneCmd
 {
-  CustomProcEventType event_type;
+  ComponentEventType event_type;
   bool                result;
 };
 
@@ -96,40 +99,39 @@ struct OutputMixObjParam
 class OutputMixToHPI2S
 {
 public:
-  OutputMixToHPI2S():
-    m_state(AS_MODULE_ID_OUTPUT_MIX_OBJ, "", Booted),
-    m_callback(NULL),
-    m_adjust_direction(OutputMixNoAdjust),
-    m_adjustment_times(0)
-    {}
+  OutputMixToHPI2S(MsgQueId self_msgq_id,
+                   MsgQueId dsp_msgq_id,
+                   MemMgrLite::PoolId cmd_pool,
+                   MemMgrLite::PoolId pcm_pool)
+    : m_self_msgq_id(self_msgq_id)
+    , m_apu_msgq_id(dsp_msgq_id)
+    , m_apu_pool_id(cmd_pool)
+    , m_pcm_pool_id(pcm_pool)
+    , m_state(AS_MODULE_ID_OUTPUT_MIX_OBJ, "", Booted)
+    , m_p_postfliter_instance(NULL)
+    , m_usercstm_instance(cmd_pool, dsp_msgq_id)
+    , m_thruproc_instance()
+    , m_postproc_type(AsPostprocTypeInvalid)
+    , m_callback(NULL)
+    , m_adjust_direction(OutputMixNoAdjust)
+    , m_adjustment_times(0)
+  {
+    memset(m_dsp_path, 0, sizeof(m_dsp_path));
+  }
 
-    MsgQueId m_self_dtq, m_requester_dtq, m_apu_dtq;
+  ~OutputMixToHPI2S()
+  {}
+
+    MsgQueId m_self_msgq_id, m_requester_msgq_id, m_apu_msgq_id;
     MemMgrLite::PoolId m_apu_pool_id;
     MemMgrLite::PoolId m_pcm_pool_id;
     int m_self_handle;
 
-  ~OutputMixToHPI2S() {}
   void parse(MsgPacket* msg);
 
   bool is_active(void)
     {
       return ((m_state.get() != Booted) ? true : false);
-    }
-  void set_self_dtq(MsgQueId dtqid)
-    {
-      m_self_dtq = dtqid;
-    }
-  void set_apu_dtq(MsgQueId dtqid)
-    {
-      m_apu_dtq = dtqid;
-    }
-  void set_pcm_pool_id(MemMgrLite::PoolId poolid)
-    {
-      m_pcm_pool_id = poolid;
-    }
-  void set_apu_pool_id(MemMgrLite::PoolId poolid)
-    {
-      m_apu_pool_id = poolid;
     }
 
 private:
@@ -147,11 +149,17 @@ private:
 
   typedef void (OutputMixToHPI2S::*MsgProc)(MsgPacket *);
   static MsgProc MsgProcTbl[AUD_MIX_MSG_NUM][StateNum];
+  static MsgProc MsgRsltTbl[AUD_MIX_RST_MSG_NUM][StateNum];
 
   typedef s_std::Queue<AsPcmDataParam, 10> RenderDataQueue;
   RenderDataQueue m_render_data_queue;
 
-  void *m_p_postfliter_instance;
+  ComponentBase *m_p_postfliter_instance;
+  UserCustomComponent m_usercstm_instance;
+  ThruProcComponent m_thruproc_instance;
+  AsPostprocType m_postproc_type;
+  char m_dsp_path[AS_POSTPROC_FILE_PATH_LEN];
+
   RenderComponentHandler m_render_comp_handler;
 
   OutputMixerCallback m_callback;
@@ -163,20 +171,25 @@ private:
   uint32_t m_max_pcm_buff_size;
   uint32_t m_apucmd_pcm_buff_size;
 
-  void reply(MsgQueId requester_dtq,
+  void reply(MsgQueId requester_msgq_id,
              MsgType msg_type,
              AsOutputMixDoneParam *done_param);
 
   void illegal(MsgPacket *msg);
   void act(MsgPacket *msg);
+  void init(MsgPacket *msg);
+  uint32_t loadComponent(AsPostprocType type, char *dsp_path);
+  uint32_t unloadComponent(void);
   void deact(MsgPacket *msg);
 
   void input_data_on_ready(MsgPacket *msg);
   void input_data_on_active(MsgPacket *msg);
   void input_data_on_under(MsgPacket *msg);
 
+  void postdone_on_ready(MsgPacket *msg);
   void postdone_on_active(MsgPacket *msg);
   void postdone_on_stopping(MsgPacket *msg);
+  void postdone_on_underflow(MsgPacket *msg);
 
   void illegal_done(MsgPacket *msg);
   void done_on_active(MsgPacket *msg);

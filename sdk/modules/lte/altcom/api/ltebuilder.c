@@ -46,35 +46,24 @@
 #include "ltebuilder.h"
 #include "hal_altmdm_spi.h"
 #include "apicmdgw.h"
-#include "stubsock.h"
+#include "altcom_callbacks.h"
 
-#include "apicmdhdlr_attachnet.h"
-#include "apicmdhdlr_dataoff.h"
-#include "apicmdhdlr_dataon.h"
-#include "apicmdhdlr_detachnet.h"
 #include "apicmdhdlr_enterpin.h"
 #include "apicmdhdlr_errind.h"
-#include "apicmdhdlr_getapnset.h"
 #include "apicmdhdlr_getce.h"
-#include "apicmdhdlr_getdataconfig.h"
-#include "apicmdhdlr_getdatastat.h"
 #include "apicmdhdlr_getedrx.h"
 #include "apicmdhdlr_getltime.h"
-#include "apicmdhdlr_getnetstat.h"
 #include "apicmdhdlr_getpinset.h"
 #include "apicmdhdlr_getpsm.h"
 #include "apicmdhdlr_imei.h"
 #include "apicmdhdlr_imsi.h"
 #include "apicmdhdlr_operator.h"
 #include "apicmdhdlr_phoneno.h"
-#include "apicmdhdlr_power.h"
+#include "lte_power.h"
 #include "apicmdhdlr_repcellinfo.h"
 #include "apicmdhdlr_repevt.h"
-#include "apicmdhdlr_repnetstat.h"
 #include "apicmdhdlr_repquality.h"
-#include "apicmdhdlr_setapn.h"
 #include "apicmdhdlr_setce.h"
-#include "apicmdhdlr_setdataconfig.h"
 #include "apicmdhdlr_setedrx.h"
 #include "apicmdhdlr_setpin.h"
 #include "apicmdhdlr_setpsm.h"
@@ -113,9 +102,6 @@
 
 #define BLOCKSETLIST_NUM (sizeof(g_blk_settings) / sizeof(g_blk_settings[0]))
 
-#define APICMD_TRANSACTION_SIZE_MAX \
-  (sizeof(struct apicmd_cmdhdr_s) + APICMD_PAYLOAD_SIZE_MAX)
-
 /****************************************************************************
  * Private Function Prototypes
  ****************************************************************************/
@@ -150,10 +136,7 @@ static struct buffpool_blockset_s g_blk_settings[] =
   },
 #endif
   {
-    APICMDGW_RECVBUFF_SIZE_MAX, 1
-  },
-  {
-    APICMD_TRANSACTION_SIZE_MAX, 1
+    APICMDGW_RECVBUFF_SIZE_MAX, 2
   }
 };
 
@@ -167,23 +150,12 @@ static evthdl_if_t g_apicmdhdlrs[] =
   apicmdhdlr_getltime,
   apicmdhdlr_repcellinfo,
   apicmdhdlr_repquality,
-  apicmdhdlr_attachnet,
-  apicmdhdlr_detachnet,
-  apicmdhdlr_dataon,
-  apicmdhdlr_dataoff,
   apicmdhdlr_enterpin,
   apicmdhdlr_errindication,
-  apicmdhdlr_getapnset,
-  apicmdhdlr_getdataconfig,
-  apicmdhdlr_getdatastat,
-  apicmdhdlr_getnetstat,
   apicmdhdlr_getpinset,
   apicmdhdlr_imsi,
   apicmdhdlr_operator,
   apicmdhdlr_phoneno,
-  apicmdhdlr_repnetstat,
-  apicmdhdlr_setapn,
-  apicmdhdlr_setdataconfig,
   apicmdhdlr_setpin,
   apicmdhdlr_repevt,
   apicmdhdlr_getedrx,
@@ -469,6 +441,8 @@ static int32_t halspi_initialize(void)
       ret = -1;
     }
 
+  lte_power_set_hal_instance(g_halif);
+
   return ret;
 }
 
@@ -490,6 +464,8 @@ static int32_t halspi_initialize(void)
 static int32_t halspi_uninitialize(void)
 {
   int32_t ret;
+
+  lte_power_set_hal_instance(NULL);
 
   ret = hal_altmdm_spi_delete(g_halif);
   if (0 > ret)
@@ -614,11 +590,16 @@ static CODE int32_t lte_buildmain(FAR void *arg)
       goto errout_with_halspi;
     }
 
-#ifdef CONFIG_NET
-  stubsock_initialize();
-#endif
+  ret = altcomcallbacks_init();
+  if (ret < 0)
+    {
+      goto errout_with_apicmdgw;
+    }
 
   return 0;
+
+errout_with_apicmdgw:
+  (void)apicmdgw_uninitialize();
 
 errout_with_halspi:
   (void)halspi_uninitialize();
@@ -655,9 +636,11 @@ static CODE int32_t lte_destroy(void)
 {
   int32_t ret;
 
-#ifdef CONFIG_NET
-  stubsock_finalize();
-#endif
+  ret = altcomcallbacks_fin();
+  if (ret < 0)
+    {
+      return ret;
+    }
 
   ret = apicmdgw_uninitialize();
   if (ret < 0)

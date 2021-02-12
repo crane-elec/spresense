@@ -38,6 +38,7 @@
  ****************************************************************************/
 
 #include <stdint.h>
+#include <string.h>
 #include <errno.h>
 
 #include "lte/lte_api.h"
@@ -56,11 +57,8 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define GETPSM_DATA_LEN (0)
-#define APICMDHDLR_GETPSM_RAT_UNIT_MIN   APICMD_GETPSM_RAT_UNIT_2SEC
-#define APICMDHDLR_GETPSM_RAT_UNIT_MAX   APICMD_GETPSM_RAT_UNIT_6MIN
-#define APICMDHDLR_GETPSM_TAU_UNIT_MIN   APICMD_GETPSM_TAU_UNIT_2SEC
-#define APICMDHDLR_GETPSM_TAU_UNIT_MAX   APICMD_GETPSM_TAU_UNIT_320HOUR
+#define REQ_DATA_LEN (0)
+#define RES_DATA_LEN (sizeof(struct apicmd_cmddat_getpsmres_s))
 
 /****************************************************************************
  * Private Functions
@@ -112,95 +110,36 @@ static int32_t getpsm_status_chg_cb(int32_t new_stat, int32_t old_stat)
 static void getpsm_job(FAR void *arg)
 {
   int32_t                              ret;
-  uint32_t                             result = LTE_RESULT_OK;
   FAR struct apicmd_cmddat_getpsmres_s *data;
-  lte_psm_setting_t                    psm;
   get_psm_cb_t                         callback;
+  uint32_t                             result = LTE_RESULT_ERROR;
+  lte_psm_setting_t                    psm_set;
 
   data = (FAR struct apicmd_cmddat_getpsmres_s *)arg;
 
   ret = altcomcallbacks_get_unreg_cb(APICMDID_GET_PSM,
-    (void **)&callback);
+                                     (void **)&callback);
 
   if ((ret == 0) && (callback))
     {
-      if (APICMD_GETPSM_RES_OK == data->result)
+      memset(&psm_set, 0, sizeof(lte_psm_setting_t));
+
+      if (LTE_RESULT_OK == data->result)
         {
-          if (APICMD_GETPSM_DISABLE == data->enable)
+          altcombs_set_psm(&data->set, &psm_set);
+
+          ret = altcombs_check_psm(&psm_set);
+          if (0 > ret)
             {
-              psm.enable = LTE_DISABLE;
-            }
-          else if (APICMD_GETPSM_ENABLE == data->enable)
-            {
-              psm.enable = LTE_ENABLE;
-
-              if (APICMDHDLR_GETPSM_RAT_UNIT_MIN <= data->rat_val.unit &&
-                data->rat_val.unit <= APICMDHDLR_GETPSM_RAT_UNIT_MAX)
-                {
-                  psm.req_active_time.unit = (uint32_t)data->rat_val.unit;
-                }
-              else
-                {
-                  DBGIF_LOG1_ERROR("Invalid parameter. RAT unit:%d\n", data->rat_val.unit);
-                  result = LTE_RESULT_ERROR;
-                }
-
-              if (LTE_RESULT_OK == result)
-                {
-                  if (APICMD_GETPSM_TIMER_MIN <= data->rat_val.time_val &&
-                    data->rat_val.time_val <= APICMD_GETPSM_TIMER_MAX)
-                    {
-                      psm.req_active_time.time_val = (uint32_t)data->rat_val.time_val;
-                    }
-                  else
-                    {
-                      DBGIF_LOG1_ERROR("Invalid parameter. RAT time_val:%d\n", data->rat_val.time_val);
-                      result = LTE_RESULT_ERROR;
-                    }
-                }
-
-              if (LTE_RESULT_OK == result)
-                {
-                  if (APICMDHDLR_GETPSM_TAU_UNIT_MIN <= data->tau_val.unit &&
-                    data->tau_val.unit <= APICMDHDLR_GETPSM_TAU_UNIT_MAX)
-                    {
-                      psm.ext_periodic_tau_time.unit = (uint32_t)data->tau_val.unit;
-                    }
-                  else
-                    {
-                      DBGIF_LOG1_ERROR("Invalid parameter. TAU unit:%d\n", data->tau_val.unit);
-                      result = LTE_RESULT_ERROR;
-                    }
-                }
-
-              if (LTE_RESULT_OK == result)
-                {
-                  if (APICMD_GETPSM_TIMER_MIN <= data->tau_val.time_val &&
-                    data->tau_val.time_val <= APICMD_GETPSM_TIMER_MAX)
-                    {
-                      psm.ext_periodic_tau_time.time_val = (uint32_t)data->tau_val.time_val;
-                    }
-                  else
-                    {
-                      DBGIF_LOG1_ERROR("Invalid parameter. TAU time_val:%d\n", data->tau_val.time_val);
-                      result = LTE_RESULT_ERROR;
-                    }
-                }
+              DBGIF_LOG1_ERROR("altcombs_check_psm() failed: %d\n", ret);
             }
           else
             {
-              DBGIF_LOG1_ERROR("Invalid parameter. enable:%d\n", data->enable);
-              result = LTE_RESULT_ERROR;
+              result = LTE_RESULT_OK;
             }
+        }
 
-          callback(result, &psm);
-          DBGIF_ASSERT(LTE_RESULT_OK == result, "Result parameter error.\n");
-        }
-      else
-        {
-          callback(LTE_RESULT_ERROR, NULL);
-          DBGIF_ASSERT(APICMD_GETPSM_RES_ERR == data->result, "Result parameter error.\n");
-        }
+      callback(result, &psm_set);
     }
   else
     {
@@ -219,8 +158,141 @@ static void getpsm_job(FAR void *arg)
 }
 
 /****************************************************************************
+ * Name: lte_getpsm_impl
+ *
+ * Description:
+ *   Get PSM settings.
+ *
+ * Input Parameters:
+ *   settings PSM settings.
+ *   callback Callback function to notify when getting PSM settings are
+ *            completed.
+ *            If the callback is NULL, operates with synchronous API,
+ *            otherwise operates with asynchronous API.
+ *
+ * Returned Value:
+ *   On success, 0 is returned.
+ *   On failure, negative value is returned according to <errno.h>.
+ *
+ ****************************************************************************/
+
+static int32_t lte_getpsm_impl(lte_psm_setting_t *settings,
+                               get_psm_cb_t callback)
+{
+  int32_t                           ret;
+  FAR uint8_t                      *reqbuff    = NULL;
+  FAR uint8_t                      *presbuff   = NULL;
+  struct apicmd_cmddat_getpsmres_s  resbuff;
+  uint16_t                          resbufflen = RES_DATA_LEN;
+  uint16_t                          reslen     = 0;
+  int                               sync       = (callback == NULL);
+
+  /* Check input parameter */
+
+  if (!settings && !callback)
+    {
+      DBGIF_LOG_ERROR("Input argument is NULL.\n");
+      return -EINVAL;
+    }
+
+  /* Check LTE library status */
+
+  ret = altcombs_check_poweron_status();
+  if (0 > ret)
+    {
+      return ret;
+    }
+
+  if (sync)
+    {
+      presbuff = (FAR uint8_t *)&resbuff;
+    }
+  else
+    {
+      /* Setup API callback */
+
+      ret = altcombs_setup_apicallback(APICMDID_GET_PSM, callback,
+                                       getpsm_status_chg_cb);
+      if (0 > ret)
+        {
+          return ret;
+        }
+    }
+
+  /* Allocate API command buffer to send */
+
+  reqbuff = (FAR uint8_t *)apicmdgw_cmd_allocbuff(APICMDID_GET_PSM,
+                                                  REQ_DATA_LEN);
+  if (!reqbuff)
+    {
+      DBGIF_LOG_ERROR("Failed to allocate command buffer.\n");
+      ret = -ENOMEM;
+      goto errout;
+    }
+
+  /* Send API command to modem */
+
+  ret = apicmdgw_send(reqbuff, presbuff,
+                      resbufflen, &reslen, SYS_TIMEO_FEVR);
+  altcom_free_cmd(reqbuff);
+
+  if (0 > ret)
+    {
+      goto errout;
+    }
+
+  ret = 0;
+
+  if (sync)
+    {
+      ret = (LTE_RESULT_OK == resbuff.result) ? 0 : -EPROTO;
+      if (0 == ret)
+        {
+          /* Parse PSM settings */
+
+          ret = altcombs_set_psm(&resbuff.set, settings);
+          if (0 > ret)
+            {
+              DBGIF_LOG1_ERROR("altcombs_set_psm() failed: %d\n", ret);
+              ret = -EFAULT;
+            }
+        }
+    }
+
+  return ret;
+
+errout:
+  if (!sync)
+    {
+      altcombs_teardown_apicallback(APICMDID_GET_PSM,
+                                    getpsm_status_chg_cb);
+    }
+  return ret;
+}
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: lte_get_psm_sync
+ *
+ * Description:
+ *   Get PSM settings.
+ *
+ * Input Parameters:
+ *   settings PSM settings.
+ *
+ * Returned Value:
+ *   On success, 0 is returned.
+ *   On failure, negative value is returned according to <errno.h>.
+ *
+ ****************************************************************************/
+
+int32_t lte_get_psm_sync(lte_psm_setting_t *settings)
+{
+ return lte_getpsm_impl(settings, NULL);
+}
 
 /****************************************************************************
  * Name: lte_get_psm
@@ -229,85 +301,22 @@ static void getpsm_job(FAR void *arg)
  *   Get PSM settings.
  *
  * Input Parameters:
- *   callback Callback function to notify that get PSM settings is
+ *   callback Callback function to notify when getting PSM settings are
  *            completed.
  *
  * Returned Value:
  *   On success, 0 is returned.
- *   On failure, negative value is returned.
+ *   On failure, negative value is returned according to <errno.h>.
  *
  ****************************************************************************/
 
 int32_t lte_get_psm(get_psm_cb_t callback)
 {
-  int32_t     ret;
-  FAR uint8_t *cmdbuff;
-
-  /* Return error if callback is NULL */
-
-  if (!callback)
-    {
-      DBGIF_LOG_ERROR("Input argument is NULL.\n");
-      return -EINVAL;
-    }
-
-  /* Check Lte library status */
-
-  ret = altcombs_check_poweron_status();
-  if (0 > ret)
-    {
-      return ret;
-    }
-
-  /* Register API callback */
-
-  ret = altcomcallbacks_chk_reg_cb((void *)callback, APICMDID_GET_PSM);
-  if (0 > ret)
-    {
-      DBGIF_LOG_ERROR("Currently API is busy.\n");
-      return -EINPROGRESS;
-    }
-
-  ret = altcomstatus_reg_statchgcb(getpsm_status_chg_cb);
-  if (0 > ret)
-    {
-      DBGIF_LOG_ERROR("Failed to registration status change callback.\n");
-      altcomcallbacks_unreg_cb(APICMDID_GET_PSM);
-      return ret;
-    }
-
-  /* Allocate API command buffer to send */
-
-  cmdbuff = (FAR uint8_t *)apicmdgw_cmd_allocbuff(APICMDID_GET_PSM,
-    GETPSM_DATA_LEN);
-  if (!cmdbuff)
-    {
-      DBGIF_LOG_ERROR("Failed to allocate command buffer.\n");
-      ret = -ENOMEM;
-    }
-  else
-    {
-      /* Send API command to modem */
-
-      ret = altcom_send_and_free(cmdbuff);
-    }
-
-  /* If fail, there is no opportunity to execute the callback,
-   * so clear it here. */
-
-  if (ret < 0)
-    {
-      /* Clear registered callback */
-
-      altcomcallbacks_unreg_cb(APICMDID_GET_PSM);
-      altcomstatus_unreg_statchgcb(getpsm_status_chg_cb);
-    }
-  else
-    {
-      ret = 0;
-    }
-
-  return ret;
+  if (!callback) {
+    DBGIF_LOG_ERROR("Input argument is NULL.\n");
+    return -EINVAL;
+  }
+ return lte_getpsm_impl(NULL, callback);
 }
 
 /****************************************************************************

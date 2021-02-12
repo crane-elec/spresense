@@ -13,9 +13,10 @@
 #    notice, this list of conditions and the following disclaimer in
 #    the documentation and/or other materials provided with the
 #    distribution.
-# 3. Neither the name NuttX nor Sony nor the names of its contributors
-#    may be used to endorse or promote products derived from this software
-#    without specific prior written permission.
+# 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+#    the names of its contributors may be used to endorse or promote
+#    products derived from this software without specific prior written
+#    permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -32,6 +33,6 @@
 #
 ############################################################################
 
-ifeq ($(CONFIG_EXAMPLES_LTE_AWSIOT),y)
+ifneq ($(CONFIG_EXAMPLES_LTE_AWSIOT),)
 CONFIGURED_APPS += lte_awsiot
 endif

@@ -180,12 +180,15 @@ static FAR struct buffpool_blockinfo_s *buffpool_createblockinfo(
   FAR struct buffpool_blockinfo_s *blkinfo         = NULL;
   FAR struct buffpool_buffinfo_s  **targetbuffinfo = NULL;
   uint32_t                        num              = 0;
+  size_t                          allocsize        = blkset->size * blkset->num;
 
-  if (USHRT_MAX < (blkset->size * blkset->num))
-  {
-    DBGIF_LOG2_ERROR("Unexpected value. size:%u, num:%u\n", blkset->size, blkset->num);
-    goto errout;
-  }
+  /* Check integer overflow of allocation Size */
+
+  if ((allocsize / blkset->size) != blkset->num)
+    {
+      DBGIF_LOG2_ERROR("Unexpected value. size:%u, num:%u\n", blkset->size, blkset->num);
+      goto errout;
+    }
 
   /* Allocate block info. */
 
@@ -202,14 +205,14 @@ static FAR struct buffpool_blockinfo_s *buffpool_createblockinfo(
 
   /* Allocate main buffer. */
 
-  blkinfo->buffer = (FAR int8_t *)SYS_MALLOC(blkset->size * blkset->num);
+  blkinfo->buffer = (FAR int8_t *)SYS_MALLOC(allocsize);
   if (!blkinfo->buffer)
     {
-      DBGIF_LOG2_ERROR("Buffer allocate failed. block size:%u, num:%u\n", blkset->size, blkset->num);
+      DBGIF_LOG1_ERROR("Buffer allocate failed. allocsize:%u\n", allocsize);
       goto errout_with_blkinfofree;
     }
 
-  blkinfo->endaddr = blkinfo->buffer + (blkset->size * blkset->num);
+  blkinfo->endaddr = blkinfo->buffer + (allocsize);
 
   /* Allocate and setting buffer info arry. */
 
@@ -341,7 +344,7 @@ static bool buffpool_getbuffer(
 
           *buffaddr = buffinfo->buffaddr;
           memset(*buffaddr, 0, blkinfo->size);
-          DBGIF_LOG2_DEBUG("Successful get buffer. size:%u(%u)\n", blkinfo->size, size);
+          DBGIF_LOG3_DEBUG("Successful get buffer. size:%u(%u) addr:%p\n", blkinfo->size, size, *buffaddr);
         }
 
       BUFFPOOL_UNLOCK(table->buffmtx);

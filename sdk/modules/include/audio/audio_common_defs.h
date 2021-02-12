@@ -36,6 +36,8 @@
 #ifndef __MODULES_INCLUDE_AUDIO_AUDIO_COMMON_DEFS_H
 #define __MODULES_INCLUDE_AUDIO_AUDIO_COMMON_DEFS_H
 
+#include <arch/chip/audio.h>
+
 /**
  * @defgroup audioutils Audio Utility
  * @{
@@ -47,7 +49,7 @@
  * @defgroup audioutils_audio_high_level_api Audio High Level API
  * @{
  *
- * @file       audio_comomn_defs.h
+ * @file       audio_common_defs.h
  * @brief      CXD5602 Audio Common Definitions
  * @author     CXD5602 Audio SW Team
  */
@@ -342,6 +344,89 @@
 
 /** @} */
 
+/** Audio Module ID */
+
+/** @defgroup module_id_code Module ID */
+/** @{ */
+
+typedef enum
+{
+  /*! \brief Audio Manager Module ID */
+
+  AS_MODULE_ID_AUDIO_MANAGER = 0,
+
+  /*! \brief Audio Baseband Driver Module ID */
+  AS_MODULE_ID_AUDIO_DRIVER,
+
+  /*! \brief FrontEnd Object ID */
+
+  AS_MODULE_ID_MIC_FRONTEND_OBJ,
+
+  /*! \brief Input Data Manager Object ID */
+
+  AS_MODULE_ID_INPUT_DATA_MNG_OBJ,
+
+  /*! \brief Media Recorder Object ID */
+
+  AS_MODULE_ID_MEDIA_RECORDER_OBJ,
+
+  /*! \brief Output Mix Object ID */
+
+  AS_MODULE_ID_OUTPUT_MIX_OBJ,
+
+  /*! \brief Player Object ID */
+
+  AS_MODULE_ID_PLAYER_OBJ,
+
+  /*! \brief Recognition Object ID */
+
+  AS_MODULE_ID_RECOGNITION_OBJ,
+
+  /*! \brief Sound Effect Object ID */
+
+  AS_MODULE_ID_SOUND_EFFECT_OBJ,
+
+  /*! \brief Synthesizer Object ID */
+
+  AS_MODULE_ID_SYNTHESIZER_OBJ,
+
+  /*! \brief Capture Component ID */
+
+  AS_MODULE_ID_CAPTURE_CMP,
+
+  /*! \brief Decoder Component ID */
+
+  AS_MODULE_ID_DECODER_CMP,
+
+  /*! \brief Encoder Component ID */
+
+  AS_MODULE_ID_ENCODER_CMP,
+
+  /*! \brief Filter Component ID */
+
+  AS_MODULE_ID_FILTER_CMP,
+
+  /*! \brief Recognition Component ID */
+
+  AS_MODULE_ID_RECOGNITION_CMP,
+
+  /*! \brief Renderer Component ID */
+
+  AS_MODULE_ID_RENDERER_CMP,
+
+  /*! \brief Postfilter Component ID */
+
+  AS_MODULE_ID_POSTPROC_CMP,
+
+  /*! \brief Oscillator Component ID */
+
+  AS_MODULE_ID_OSCILLATOR_CMP,
+
+  AS_MODULE_ID_NUM,
+} AsModuleId;
+
+/** @} */
+
 /** @defgroup attention_code Attention Code */
 /** @{ */
 
@@ -520,7 +605,7 @@
 #define AS_ATTENTION_SUB_CODE_DSP_RESULT_ERROR      0x15
 
 /*! \brief DSP Illegal Reply
- *  \detail Command packet from DSP may be broken.
+ *  \details Command packet from DSP may be broken.
  *          If uses multi DSP, Check duplication of command buffer.
  */
 
@@ -646,6 +731,18 @@ typedef struct
 
 } AsPcmDataParam;
 
+typedef struct
+{
+  /*! \brief [in] Memory handle for recognition result information. */
+
+  MemMgrLite::MemHandle mh;
+
+  /*! \brief [in] Size recognition result information. */
+
+  uint32_t size;
+
+} AsRecognitionInfo;
+
 /** ErrorAttention Result (#AUDRLT_ERRORATTENTION) parameter */
 
 #define ATTENTION_FILE_NAME_LEN 32
@@ -721,4 +818,9 @@ typedef void (*obs_AudioAttentionCb)(uint8_t module_id,
 #endif
 
 #endif /* __MODULES_INCLUDE_AUDIO_AUDIO_COMMON_DEFS_H */
-
+/**
+ * @}
+ */
+/**
+ * @}
+ */

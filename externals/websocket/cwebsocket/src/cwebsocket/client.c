@@ -29,7 +29,6 @@
 extern int getaddrinfo(const char *nodename, const char *servname,
                 const struct addrinfo *hints, struct addrinfo **res);
 extern void freeaddrinfo(struct addrinfo *res);
-extern int ws_sscanf(FAR const char *buf, FAR const char *fmt, ...);
 
 int cwebsocket_client_init(cwebsocket_client *websocket, cwebsocket_subprotocol **subprotocols, int subprotocol_len) {
 	if (subprotocol_len > WEBSOCKET_SUBPROTOCOL_MAX)
@@ -76,52 +75,52 @@ void cwebsocket_client_unset_proxy(cwebsocket_client *websocket)
 void cwebsocket_client_parse_uri(cwebsocket_client *websocket, const char *uri,
 		char *hostname, char *port, char *resource, char *querystring) {
 
-	if(ws_sscanf(uri, "ws://%[^:]:%[^/]%[^?]%s", hostname, port, resource, querystring) == 4) {
+	if(sscanf(uri, "ws://%[^:]:%[^/]%[^?]%s", hostname, port, resource, querystring) == 4) {
 		return;
 	}
-	else if(ws_sscanf(uri, "ws://%[^:]:%[^/]%s", hostname, port, resource) == 3) {
+	else if(sscanf(uri, "ws://%[^:]:%[^/]%s", hostname, port, resource) == 3) {
 		strcpy(querystring, "");
 		return;
 	}
-	else if(ws_sscanf(uri, "ws://%[^:]:%[^/]%s", hostname, port, resource) == 2) {
+	else if(sscanf(uri, "ws://%[^:]:%[^/]%s", hostname, port, resource) == 2) {
 		strncpy(resource, "/", strlen("/"));
 		strcpy(querystring, "");
 		return;
 	}
-	else if(ws_sscanf(uri, "ws://%[^/]%s", hostname, resource) == 2) {
+	else if(sscanf(uri, "ws://%[^/]%s", hostname, resource) == 2) {
 		strncpy(port, "80", strlen("80"));
 		strcpy(querystring, "");
 		return;
 	}
-	else if(ws_sscanf(uri, "ws://%[^/]", hostname) == 1) {
+	else if(sscanf(uri, "ws://%[^/]", hostname) == 1) {
 		strncpy(port, "80", strlen("80"));
 		strncpy(resource, "/", strlen("/"));
 		strcpy(querystring, "");
 		return;
 	}
 #ifdef ENABLE_SSL
-	else if(ws_sscanf(uri, "wss://%[^:]:%[^/]%[^?]%s", hostname, port, resource, querystring) == 4) {
+	else if(sscanf(uri, "wss://%[^:]:%[^/]%[^?]%s", hostname, port, resource, querystring) == 4) {
 		websocket->flags |= WEBSOCKET_FLAG_SSL;
 		return;
 	}
-	else if(ws_sscanf(uri, "wss://%[^:]:%[^/]%s", hostname, port, resource) == 3) {
+	else if(sscanf(uri, "wss://%[^:]:%[^/]%s", hostname, port, resource) == 3) {
 		strcpy(querystring, "");
 		websocket->flags |= WEBSOCKET_FLAG_SSL;
 		return;
 	}
-	else if(ws_sscanf(uri, "wss://%[^:]:%[^/]%s", hostname, port, resource) == 2) {
+	else if(sscanf(uri, "wss://%[^:]:%[^/]%s", hostname, port, resource) == 2) {
 		strncpy(resource, "/", strlen("/"));
 		strcpy(querystring, "");
 		websocket->flags |= WEBSOCKET_FLAG_SSL;
 		return;
 	}
-	else if(ws_sscanf(uri, "wss://%[^/]%s", hostname, resource) == 2) {
+	else if(sscanf(uri, "wss://%[^/]%s", hostname, resource) == 2) {
 		strncpy(port, "443", strlen("443"));
 		strcpy(querystring, "");
 		websocket->flags |= WEBSOCKET_FLAG_SSL;
 		return;
 	}
-	else if(ws_sscanf(uri, "wss://%[^/]", hostname) == 1) {
+	else if(sscanf(uri, "wss://%[^/]", hostname) == 1) {
 		strncpy(port, "443", strlen("443"));
 		strncpy(resource, "/", strlen("/"));
 		strcpy(querystring, "");
@@ -153,7 +152,8 @@ int cwebsocket_client_ssl_init(cwebsocket_client *websocket, char *cert_name, ch
 	mbedtls_ctr_drbg_init( &websocket->ctr_drbg );
 	mbedtls_entropy_init( &websocket->entropy );
 
-	if( ( ret = mbedtls_ctr_drbg_seed( &websocket->ctr_drbg, NULL, &websocket->entropy,
+	if( ( ret = mbedtls_ctr_drbg_seed( &websocket->ctr_drbg, mbedtls_entropy_func,
+                                                           &websocket->entropy,
 							   (const unsigned char *) "ssl_client1",
 							   strlen( "ssl_client1" ) ) ) != 0 )
 	{
@@ -257,7 +257,7 @@ int cwebsocket_client_connect(cwebsocket_client *websocket) {
 	WS_DEBUG ("client_connect: hostname=%s, port=%s, resource=%s, querystring=%s, secure=%i\n",
 			hostname, port, resource, querystring, (websocket->flags & WEBSOCKET_FLAG_SSL));
 
-	char handshake[CWS_HANDSHAKE_BUFFER_MAX];
+	char handshake[CWS_HANDSHAKE_BUFFER_MAX+1];
 	struct addrinfo hints, *servinfo;
 	time_t Tick0 = 0;
 	time(&Tick0);
@@ -354,7 +354,7 @@ int cwebsocket_client_connect(cwebsocket_client *websocket) {
 			}
 		}
 			
-		mbedtls_ssl_set_bio( &websocket->ssl, &websocket->ssl_net_ctx, NULL, NULL, NULL);
+		mbedtls_ssl_set_bio( &websocket->ssl, &websocket->ssl_net_ctx, mbedtls_net_send, mbedtls_net_recv, mbedtls_net_recv_timeout );
 
 		while( ( ret = mbedtls_ssl_handshake( &websocket->ssl ) ) != 0 )
 		{
@@ -843,14 +843,14 @@ int cwebsocket_client_read_data(cwebsocket_client *websocket) {
 		if(websocket->subprotocol != NULL && websocket->subprotocol->onmessage != NULL) {
 
 #ifdef ENABLE_THREADS
-			cwebsocket_dsp_message *message = malloc(sizeof(cwebsocket_dsp_message));
+			cwebsocket_message *message = malloc(sizeof(cwebsocket_message));
 			if(message == NULL) {
 				WS_DEBUG("client_read_data: text message out of memory");
 				cwebsocket_client_close(websocket, 1009, "out of memory");
 				free(payload);
 				return -1;
 			}
-			memset(message, 0, sizeof(cwebsocket_dsp_message));
+			memset(message, 0, sizeof(cwebsocket_message));
 			message->opcode = frame.opcode;
 			message->payload_len = payload_length;
 			message->payload = payload;
@@ -880,7 +880,7 @@ int cwebsocket_client_read_data(cwebsocket_client *websocket) {
 //		    free(args);
 		    return bytes_read;
 #else
-			cwebsocket_dsp_message message = {0};
+			cwebsocket_message message = {0};
 			message.opcode = frame.opcode;
 			message.payload_len = payload_length;
 			message.payload = payload;
@@ -911,7 +911,7 @@ int cwebsocket_client_read_data(cwebsocket_client *websocket) {
 		if(websocket->subprotocol->onmessage != NULL) {
 
 #ifdef ENABLE_THREADS
-			cwebsocket_dsp_message *message = malloc(sizeof(cwebsocket_dsp_message));
+			cwebsocket_message *message = malloc(sizeof(cwebsocket_message));
 			if(message == NULL) {
 				WS_DEBUG("client_read_data: binary message out of memory");
 				cwebsocket_client_close(websocket, 1009, "out of memory");
@@ -945,7 +945,7 @@ int cwebsocket_client_read_data(cwebsocket_client *websocket) {
 //			free(args);
 			return bytes_read;
 #else
-			cwebsocket_dsp_message message;
+			cwebsocket_message message;
 			message.opcode = frame.opcode;
 			message.payload_len = payload_length;
 			message.payload = payload;
@@ -1124,8 +1124,8 @@ void cwebsocket_client_close(cwebsocket_client *websocket, uint16_t code, const 
 
 		if(code > 0) {
 			code = code ? htons(code) : htons(1005);
-			int message_len = (message == NULL) ? 2 : strlen(message) + 2;
-			uint8_t close_frame[message_len];
+			int message_len = (message == NULL) ? 0 : strlen(message);
+			uint8_t close_frame[message_len+2];
 			close_frame[0] = code & 0xFF;
 			close_frame[1] = (code >> 8);
 			code32 = (close_frame[0] << 8) + (close_frame[1]);
@@ -1133,7 +1133,7 @@ void cwebsocket_client_close(cwebsocket_client *websocket, uint16_t code, const 
 			for(i=0; i<message_len; i++) {
 				close_frame[i+2] = message[i];
 			}
-			cwebsocket_client_send_control_frame(websocket, CLOSE, "CLOSE", close_frame, message_len);
+			cwebsocket_client_send_control_frame(websocket, CLOSE, "CLOSE", close_frame, message_len+2);
 		}
 		else {
 			cwebsocket_client_send_control_frame(websocket, CLOSE, "CLOSE", NULL, 0);
@@ -1226,41 +1226,20 @@ void cwebsocket_client_onopen(cwebsocket_client *websocket) {
 	}
 }
 
-void cwebsocket_client_onmessage(cwebsocket_client *websocket, cwebsocket_dsp_message *message) {
+void cwebsocket_client_onmessage(cwebsocket_client *websocket, cwebsocket_message *message) {
 	if(websocket->subprotocol != NULL && websocket->subprotocol->onmessage != NULL) {
-		uint64_t len;
-		websocket->message.opcode = message->opcode;
-
-		for (len = 0; len < message->payload_len; len += MAX_CHUNK_SIZE){
-			if (len + MAX_CHUNK_SIZE > message->payload_len){
-				websocket->message.chunk_len = (message->payload_len - len);
-				memcpy(websocket->message.payload, &message->payload[len], (message->payload_len - len));
-				websocket->message.payload[(message->payload_len - len)] = '\0';
-			} else {
-				websocket->message.chunk_len = MAX_CHUNK_SIZE;
-				memcpy(websocket->message.payload, &message->payload[len], MAX_CHUNK_SIZE);
-				websocket->message.payload[MAX_CHUNK_SIZE] = '\0';
-			}
-			websocket->message.chunk_pos = len;
-			websocket->message.payload_len = message->payload_len;
-			websocket->subprotocol->onmessage(websocket);
-		}
+		websocket->subprotocol->onmessage(websocket, message);
 	}
 }
 
 void cwebsocket_client_onclose(cwebsocket_client *websocket, int code, const char *message) {
 	if(websocket->subprotocol != NULL && websocket->subprotocol->onclose != NULL) {
-		strncpy(websocket->message.payload, message, MAX_CHUNK_SIZE);
-		websocket->code = code;
-		websocket->message.payload_len = strlen(message);
-		websocket->subprotocol->onclose(websocket);
+		websocket->subprotocol->onclose(websocket, code, message);
 	}
 }
 
 void cwebsocket_client_onerror(cwebsocket_client *websocket, const char *error) {
 	if(websocket->subprotocol != NULL && websocket->subprotocol->onerror != NULL) {
-		strncpy(websocket->message.payload, error, MAX_CHUNK_SIZE);
-		websocket->message.payload_len = strlen(error);
-		websocket->subprotocol->onerror(websocket);
+		websocket->subprotocol->onerror(websocket, error);
 	}
 }

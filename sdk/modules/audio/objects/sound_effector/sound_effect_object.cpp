@@ -36,7 +36,7 @@
 #include "sound_effect_object.h"
 
 #include "memutils/common_utils/common_assert.h"
-#ifdef CONFIG_AUDIOUTILS_VOICE_COMMAND
+#ifdef CONFIG_AUDIOUTILS_SOUND_RECOGNIZER
 #include "objects/sound_recognizer/voice_recognition_command_object.h"
 #endif
 
@@ -207,7 +207,7 @@ static bool handle_mfe_done_notification(MfeCmpltParam *p_cmplt)
       case InitEvent:
         break;
       case ExecEvent:
-#ifdef CONFIG_AUDIOUTILS_VOICE_COMMAND
+#ifdef CONFIG_AUDIOUTILS_SOUND_RECOGNIZER
         {
           VoiceRecognitionCommandObject::CommandExecParam_t exec_param;
 
@@ -223,7 +223,7 @@ static bool handle_mfe_done_notification(MfeCmpltParam *p_cmplt)
                                                          exec_param);
           F_ASSERT(er == ERR_OK);
         }
-#endif /* #ifdef CONFIG_AUDIOUTILS_VOICE_COMMAND */
+#endif /* #ifdef CONFIG_AUDIOUTILS_SOUND_RECOGNIZER */
         break;
 
       case StopEvent:
@@ -1413,7 +1413,7 @@ uint32_t SoundEffectObject::initMfe(const AudioCommand& cmd)
 
   cap_comp_param.init_param.capture_ch_num    = m_mic_in_ch_num;
   /* TODO: Fixed valuse */
-  cap_comp_param.init_param.capture_bit_width = AudPcm16Bit;
+  cap_comp_param.init_param.capture_bit_width = AudPcmFormatInt16;
   cap_comp_param.init_param.callback          = capture_done_callback;
   cap_comp_param.handle                       = m_capture_from_mic_hdlr;
 
@@ -1428,7 +1428,7 @@ uint32_t SoundEffectObject::initMfe(const AudioCommand& cmd)
    */
   cap_comp_param.init_param.capture_ch_num    = m_i2s_in_ch_num;
   /* TODO: Fixed value */
-  cap_comp_param.init_param.capture_bit_width = AudPcm16Bit;
+  cap_comp_param.init_param.capture_bit_width = AudPcmFormatInt16;
   cap_comp_param.init_param.callback          = capture_done_callback;
   cap_comp_param.handle                       = m_capture_from_i2s_hdlr;
 

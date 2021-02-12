@@ -127,17 +127,18 @@ extern "C" CODE void *dd_receiver_thread(FAR void *p_instance)
 int DspDrv::init(FAR const char  *pfilename,
                  DspDoneCallback p_cbfunc,
                  FAR void        *p_parent_instance,
-                 bool            is_secure)
+                 dsp_bin_type_e  bintype)
 {
   int   ret;
   int   errout_ret;
+  char  *dsp;
   pthread_attr_t attr;
   struct sched_param sch_param;
 
   m_p_cb_func = p_cbfunc;
   m_p_parent_instance = p_parent_instance;
 
-  if (is_secure)
+  if (bintype == DspBinTypeSPK)
     {
       /* Initialize MP task. */
 
@@ -179,7 +180,7 @@ int DspDrv::init(FAR const char  *pfilename,
       goto dsp_drv_errout_with_mptask_destroy;
     }
 
-  if (!is_secure)
+  if (bintype == DspBinTypeELF)
     {
       ret = mptask_bindobj(&m_mptask, &m_mq);
       if (ret < 0)
@@ -211,6 +212,16 @@ int DspDrv::init(FAR const char  *pfilename,
       errout_ret = DSPDRV_INIT_PTHREAD_FAIL;
       (void)pthread_attr_destroy(&attr);
       goto dsp_drv_errout_with_mpmq_destory;
+    }
+
+  dsp = strrchr(pfilename, '/');
+  if (dsp)
+    {
+      pthread_setname_np(m_thread_id, dsp + 1);
+    }
+  else
+    {
+      pthread_setname_np(m_thread_id, pfilename);
     }
 
   (void)pthread_attr_destroy(&attr);
@@ -349,7 +360,8 @@ int DspDrv::receive()
 int DD_Load(FAR const char  *filename,
             DspDoneCallback p_cbfunc,
             FAR void        *p_parent_instance,
-            FAR void        **dsp_handler)
+            FAR void        **dsp_handler,
+            dsp_bin_type_e  bintype)
 {
   if (filename == NULL)
     {
@@ -377,7 +389,7 @@ int DD_Load(FAR const char  *filename,
       int ret = p_instance->init(filename,
                                  p_cbfunc,
                                  p_parent_instance,
-                                 false);
+                                 bintype);
       if (ret != DSPDRV_NOERROR)
         {
           delete ((FAR DspDrv*)p_instance);
@@ -393,41 +405,7 @@ int DD_Load_Secure(FAR const char  *filename,
                    FAR void        *p_parent_instance,
                    FAR void        **dsp_handler)
 {
-  if (filename == NULL)
-    {
-      return DSPDRV_FILENAME_EMPTY;
-    }
-  if ( p_cbfunc == NULL)
-    {
-      return DSPDRV_CALLBACK_ERROR;
-    }
-  if (dsp_handler == NULL)
-    {
-      return DSPDRV_INVALID_VALUE;
-    }
-
-  FAR DspDrv *p_instance = new DspDrv;
-  *dsp_handler = p_instance;
-
-  if (p_instance == NULL)
-    {
-      return DSPDRV_CREATE_FAIL;
-    }
-  else
-    {
-      /* Initialize DspDriver. */
-
-      int ret = p_instance->init(filename,
-                                 p_cbfunc,
-                                 p_parent_instance,
-                                 true);
-      if (ret != DSPDRV_NOERROR)
-        {
-          delete ((FAR DspDrv*)p_instance);
-          return ret;
-        }
-    }
-  return DSPDRV_NOERROR;
+  return DD_Load(filename, p_cbfunc, p_parent_instance, dsp_handler, DspBinTypeSPK);
 }
 
 /*--------------------------------------------------------------------------*/

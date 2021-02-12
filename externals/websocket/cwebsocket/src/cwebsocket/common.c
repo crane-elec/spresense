@@ -36,11 +36,17 @@ char* cwebsocket_base64_encode(const unsigned char *input, int length) {
 	
 	mbedtls_base64_encode(buffer, sizeof( buffer ), &olen, input, length );
 
-	char *buff = (char *)malloc(olen);
-	memcpy(buff, buffer, olen-1); 
-	buff[olen-1] = '\0'; 
-	
-	return buff;
+	if ((olen > 1) && (olen <= 128))
+	{
+		char *buff = (char *)malloc(olen);
+		if (buff != NULL)
+		{
+			memcpy(buff, buffer, olen-1); 
+			buff[olen-1] = '\0'; 
+			return buff;
+		}
+	}
+	return NULL;
 }
 
 void cwebsocket_print_frame(cwebsocket_frame *frame) {
@@ -60,21 +66,3 @@ char* cwebsocket_create_key_challenge_response(const char *seckey) {
 	return cwebsocket_base64_encode((const unsigned char *)sha1_bytes, sizeof(sha1_bytes));
 }
 
-#if 0
-void
-ws_thread_new( const char *pcName, void( *pxThread )( void *pvParameters ), void *pvArg, int iStackSize, int iPriority )
-{
-	pthread_attr_t attr;
-	pthread_t      thread;
-
-	pthread_attr_init(&attr);
-
-	attr.priority = iPriority;
-	attr.stacksize = iStackSize;
-
-	if( pthread_create( &thread, &attr, (pthread_startroutine_t)pxThread, pvArg ) == 0 )
-	{
-		pthread_detach(thread);
-	}
-}
-#endif
