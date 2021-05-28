@@ -2,6 +2,7 @@
  * modules/lte/altcom/api/mbedtls/x509write_crt_free.c
  *
  *   Copyright 2018 Sony Corporation
+ *   Copyright 2020, 2021 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,6 +79,13 @@ static int32_t x509write_crt_free_request(FAR struct x509write_crt_free_req_s *r
   FAR struct apicmd_x509write_crt_free_s    *cmd = NULL;
   FAR struct apicmd_x509write_crt_freeres_s *res = NULL;
 
+  /* Check ALTCOM protocol version */
+
+  if (apicmdgw_get_protocolversion() != APICMD_VER_V1)
+    {
+      return X509WRITE_CRT_FREE_FAILURE;
+    }
+
   /* Allocate send and response command buffer */
 
   if (!altcom_mbedtls_alloc_cmdandresbuff(
@@ -148,7 +156,7 @@ void mbedtls_x509write_crt_free(mbedtls_x509write_cert *ctx)
 
   if (result != X509WRITE_CRT_FREE_SUCCESS)
     {
-      DBGIF_LOG_ERROR("%s error.\n");
+      DBGIF_LOG1_ERROR("%s error.\n", __func__);
     }
 }
 

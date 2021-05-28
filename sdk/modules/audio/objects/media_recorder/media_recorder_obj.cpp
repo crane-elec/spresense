@@ -1,7 +1,7 @@
 /****************************************************************************
  * modules/audio/objects/media_recorder/media_recorder_obj.cpp
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2018-2021 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -87,9 +87,6 @@ static bool filter_done_callback(ComponentCbParam *cmplt, void* p_requester)
     {
       case ComponentExec:
         {
-          MEDIA_RECORDER_VDBG("flt sz %d\n",
-                              cmplt->out_buffer.size);
-
           MediaRecorderObjectTask::FilterDoneCmd result_param;
 
           result_param.event_type = cmplt->event_type;
@@ -108,9 +105,6 @@ static bool filter_done_callback(ComponentCbParam *cmplt, void* p_requester)
 
       case ComponentFlush:
         {
-          MEDIA_RECORDER_VDBG("Flsflt sz %d\n",
-                              cmplt->out_buffer.size);
-
           MediaRecorderObjectTask::FilterDoneCmd result_param;
 
           result_param.event_type = cmplt->event_type;
@@ -694,22 +688,22 @@ uint32_t MediaRecorderObjectTask::initEnc(AsInitRecorderParam *param)
 
       if (isNeedUpsampling(param->sampling_rate))
         {
-          init_param.fixparam.samples       =
+          init_param.common.samples       =
             getCapSampleNumPerFrame(param->codec_type, param->sampling_rate);
-          init_param.fixparam.in_fs         =
+          init_param.common.in_fs         =
             (cxd56_audio_get_clkmode() == CXD56_AUDIO_CLKMODE_HIRES)
               ? AS_SAMPLINGRATE_192000 : AS_SAMPLINGRATE_48000;
-          init_param.fixparam.out_fs        = param->sampling_rate;
-          init_param.fixparam.in_bitlength  = param->bit_length;
-          init_param.fixparam.out_bitlength = param->bit_length;
-          init_param.fixparam.ch_num        = param->channel_number;
+          init_param.common.out_fs        = param->sampling_rate;
+          init_param.common.in_bitlength  = param->bit_length;
+          init_param.common.out_bitlength = param->bit_length;
+          init_param.common.ch_num        = param->channel_number;
         }
       else
         {
           if (m_pcm_bit_width == AudPcmFormatInt24)
             {
-              init_param.fixparam.in_bitlength  = AS_BITLENGTH_32;
-              init_param.fixparam.out_bitlength = AS_BITLENGTH_24;
+              init_param.common.in_bitlength  = AS_BITLENGTH_32;
+              init_param.common.out_bitlength = AS_BITLENGTH_24;
             }
         }
 
@@ -1427,11 +1421,11 @@ bool MediaRecorderObjectTask::execEnc(AsPcmDataParam *inpcm)
       ExecComponentParam param;
 
       param.input     = *inpcm;
-      param.output_mh = outmh;
+      param.output = outmh;
 
       if ((m_filter_instance)
        && (param.input.mh.getPa())
-       && (param.output_mh.getPa()))
+       && (param.output.getPa()))
         {
           if (m_filter_instance->exec(param))
             {
@@ -1490,7 +1484,7 @@ bool MediaRecorderObjectTask::stopEnc(void)
     {
       FlushComponentParam param;
 
-      param.output_mh = outmh;
+      param.output = outmh;
 
       if (m_filter_instance)
         {

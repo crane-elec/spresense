@@ -1,7 +1,7 @@
 ############################################################################
-# examples/jpeg_decode/Make.defs
+# modules/asmp/worker/Makefile
 #
-#   Copyright 2019 Sony Semiconductor Solutions Corporation
+#   Copyright 2018 Sony Semiconductor Solutions Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -33,6 +33,58 @@
 #
 ############################################################################
 
-ifneq ($(CONFIG_EXAMPLES_JPEG_DECODE),)
-CONFIGURED_APPS += jpeg_decode
-endif
+-include $(TOPDIR)/Make.defs
+-include $(SDKDIR)/Make.defs
+
+VPATH   =
+SUBDIRS =
+DEPPATH = --dep-path .
+
+CSRCS = helper.c
+
+AOBJS = $(ASRCS:.S=$(OBJEXT))
+COBJS = $(CSRCS:.c=$(OBJEXT))
+
+LIB_OBJS = $(AOBJS) $(COBJS)
+
+SRCS = $(ASRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
+
+BIN = libmpcommh$(LIBEXT)
+
+CFLAGS += -I$(SDKDIR)/modules/asmp/worker
+
+all: $(BIN)
+.PHONY: context depend clean distclean
+
+$(AOBJS): %$(OBJEXT): %.S
+	$(call ASSEMBLE, $<, $@)
+
+$(COBJS): %$(OBJEXT): %.c
+	$(call COMPILE, $<, $@)
+
+$(BIN): $(LIB_OBJS)
+	$(call ARCHIVE, $@, $(LIB_OBJS))
+
+.depend: Makefile $(SRCS) $(TOPDIR)$(DELIM).config
+	$(Q) $(MKDEP) $(DEPPATH) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
+
+depend: .depend
+
+.context:
+	$(Q) touch $@
+
+context: .context
+
+clean:
+	$(call DELFILE, $(BIN))
+	$(call CLEAN)
+
+distclean: clean
+	$(call DELFILE, .context)
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
+
+-include Make.dep
+

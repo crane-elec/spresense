@@ -2,6 +2,7 @@
  * modules/lte/altcom/api/mbedtls/cipher_init.c
  *
  *   Copyright 2018 Sony Corporation
+ *   Copyright 2020, 2021 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,6 +80,13 @@ static int32_t cipher_init_request(FAR struct cipher_init_req_s *req)
   FAR struct apicmd_cipher_init_s    *cmd = NULL;
   FAR struct apicmd_cipher_initres_s *res = NULL;
 
+  /* Check ALTCOM protocol version */
+
+  if (apicmdgw_get_protocolversion() != APICMD_VER_V1)
+    {
+      return CIPHER_INIT_FAILURE;
+    }
+
   /* Allocate send and response command buffer */
 
   if (!altcom_mbedtls_alloc_cmdandresbuff(
@@ -150,7 +158,7 @@ void mbedtls_cipher_init(mbedtls_cipher_context_t *ctx)
 
   if (result != CIPHER_INIT_SUCCESS)
     {
-      DBGIF_LOG_ERROR("%s error.\n");
+      DBGIF_LOG1_ERROR("%s error.\n", __func__);
     }
 }
 

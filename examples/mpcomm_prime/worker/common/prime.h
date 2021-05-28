@@ -1,8 +1,7 @@
 /****************************************************************************
- * examples/jpeg_decode/jpeg_decode_nx_listener.c
+ * mpcomm_prime/worker/common/prime.h
  *
- *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Copyright 2021 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,9 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name NuttX nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+ *    the names of its contributors may be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -33,62 +33,30 @@
  *
  ****************************************************************************/
 
+#ifndef __PRIME_H
+#define __PRIME_H
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include <nuttx/config.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-
-#include <nuttx/nx/nx.h>
-
-#include "jpeg_decode.h"
+#include <stdint.h>
 
 /****************************************************************************
- * Public Functions
+ * Public Types
  ****************************************************************************/
 
-/****************************************************************************
- * Name: nximage_listener
- ****************************************************************************/
-
-FAR void *nximage_listener(FAR void *arg)
+typedef struct prime_data
 {
-  int ret;
+  uint32_t start;
+  uint32_t end;
+  uint32_t result;
+} prime_data_t;
 
-  /* Process events forever */
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
 
-  for (;;)
-    {
-      /* Handle the next event.  If we were configured blocking, then
-       * we will stay right here until the next event is received.  Since
-       * we have dedicated a while thread to servicing events, it would
-       * be most natural to also select CONFIG_NX_BLOCKING -- if not, the
-       * following would be a tight infinite loop (unless we added addition
-       * logic with nx_eventnotify and sigwait to pace it).
-       */
+uint32_t find_primes(uint32_t start, uint32_t end);
 
-      ret = nx_eventhandler(g_jpeg_decode_nximage.hnx);
-      if (ret < 0)
-        {
-          /* An error occurred... assume that we have lost connection with
-           * the server.
-           */
-
-          printf("nximage_listener: Lost server connection: %d\n", errno);
-          exit(EXIT_FAILURE);
-        }
-
-      /* If we received a message, we must be connected */
-
-      if (!g_jpeg_decode_nximage.connected)
-        {
-          g_jpeg_decode_nximage.connected = true;
-          sem_post(&g_jpeg_decode_nximage.sem);
-          printf("nximage_listener: Connected\n");
-        }
-    }
-}
+#endif /* __PRIME_H */

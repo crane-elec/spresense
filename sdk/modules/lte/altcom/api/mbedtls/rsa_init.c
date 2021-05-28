@@ -2,6 +2,7 @@
  * modules/lte/altcom/api/mbedtls/rsa_init.c
  *
  *   Copyright 2018 Sony Corporation
+ *   Copyright 2020, 2021 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,6 +82,13 @@ static int32_t rsa_init_request(FAR struct rsa_init_req_s *req)
   FAR struct apicmd_rsa_init_s    *cmd = NULL;
   FAR struct apicmd_rsa_initres_s *res = NULL;
 
+  /* Check ALTCOM protocol version */
+
+  if (apicmdgw_get_protocolversion() != APICMD_VER_V1)
+    {
+      return RSA_INIT_FAILURE;
+    }
+
   /* Allocate send and response command buffer */
 
   if (!altcom_mbedtls_alloc_cmdandresbuff(
@@ -158,7 +166,7 @@ void mbedtls_rsa_init(mbedtls_rsa_context *ctx, int padding, int hash_id)
 
   if (result != RSA_INIT_SUCCESS)
     {
-      DBGIF_LOG_ERROR("%s error.\n");
+      DBGIF_LOG1_ERROR("%s error.\n", __func__);
     }
 }
 

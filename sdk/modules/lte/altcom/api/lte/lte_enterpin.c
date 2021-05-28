@@ -1,7 +1,7 @@
 /****************************************************************************
  * modules/lte/altcom/api/lte/lte_enterpin.c
  *
- *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *   Copyright 2018, 2020 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,6 +49,7 @@
 #include "apicmdhdlrbs.h"
 #include "altcom_callbacks.h"
 #include "altcombs.h"
+#include "lte/altcom/altcom_api.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -151,10 +152,10 @@ static void enterpin_job(FAR void *arg)
  *   pincode       Current PIN code. Minimum number of digits is 4.
  *                 Maximum number of digits is 8, end with '\0'.
  *                 (i.e. Max 9 byte)
- *   new_pincode   If not used, set NULL. If the PIN is SIM PUK or SIM PUK2,
- *                 the new_pincode is required.
- *                 Minimum number of digits is 4. Maximum number of digits
- *                 is 8, end with '\0'. (i.e. Max 9 byte)
+ *   new_pincode   Always set NULL.
+ *                 This parameter is not currently used.
+ *                 If this parameter has a value in it,
+ *                 this API will error.
  *   simstat       State after PIN enter.
  *   attemptsleft  Number of attempts left. Set only if failed. If simstat is
  *                 other than PIN, PUK, PIN2, PUK2, set the number of PIN.
@@ -180,6 +181,8 @@ static int32_t lte_enterpin_impl(int8_t *pincode, int8_t *new_pincode,
   uint16_t                             reslen     = 0;
   int                                  sync       = (callback == NULL);
   uint8_t                              pinlen     = 0;
+  uint16_t                             cmdid = 0;
+  lte_getpin_t                         pinset = {0};
 
   /* Check input parameter */
 
@@ -195,27 +198,81 @@ static int32_t lte_enterpin_impl(int8_t *pincode, int8_t *new_pincode,
       return -EINVAL;
     }
 
-  pinlen = strlen((FAR char *)pincode);
-  if (pinlen < ENTERPIN_MIN_PIN_LEN || ENTERPIN_MAX_PIN_LEN < pinlen)
-    {
-      return -EINVAL;
-    }
-
-  if (new_pincode)
-    {
-      pinlen = strlen((FAR char *)new_pincode);
-      if (pinlen < ENTERPIN_MIN_PIN_LEN || ENTERPIN_MAX_PIN_LEN < pinlen)
-        {
-          return -EINVAL;
-        }
-    }
-
   /* Check LTE library status */
 
   ret = altcombs_check_poweron_status();
   if (0 > ret)
     {
+      DBGIF_LOG1_ERROR("Modem is not powered on.%d\n", ret);
       return ret;
+    }
+
+  ret = altcom_get_pinset_sync(&pinset);
+  if (ret < 0)
+    {
+      DBGIF_LOG1_ERROR("Failed to get pinset.%d\n", ret);
+      return ret;
+    }
+
+  /* Input the current simstat and attemptsleft. */
+
+  if (simstat)
+    {
+      *simstat = pinset.status;
+    }
+
+  if (attemptsleft)
+    {
+      if (pinset.status == LTE_PINSTAT_SIM_PUK)
+        {
+          *attemptsleft = pinset.puk_attemptsleft;
+        }
+      else
+        {
+          *attemptsleft = pinset.pin_attemptsleft;
+        }
+    }
+
+  pinlen = strlen((FAR char *)pincode);
+  if (pinlen < ENTERPIN_MIN_PIN_LEN || ENTERPIN_MAX_PIN_LEN < pinlen)
+    {
+      DBGIF_LOG1_ERROR("Invalid PIN code length.length:%d\n", pinlen);
+      return -EINVAL;
+    }
+
+  if (new_pincode)
+    {
+      DBGIF_LOG1_ERROR("lte_enter_pin%s() doesn't support entering PUK code.\n",
+        (sync ? "_sync" : ""));
+      return -EINVAL;
+    }
+
+  if (pinset.enable == LTE_DISABLE)
+    {
+      DBGIF_LOG1_ERROR("PIN lock is disable. Don't need to run lte_enter_pin%s().\n",
+        (sync ? "_sync" : ""));
+      return -EPERM;
+    }
+  else if (pinset.status != LTE_PINSTAT_SIM_PIN)
+    {
+      if (pinset.status == LTE_PINSTAT_SIM_PUK)
+        {
+          DBGIF_LOG1_ERROR("This SIM is PUK locked. lte_enter_pin%s() can't be used.\n",
+            (sync ? "_sync" : ""));
+        }
+      else
+        {
+          DBGIF_LOG2_ERROR("PIN is already unlocked. Don't need to run lte_enter_pin%s(). status:%d\n",
+            (sync ? "_sync" : ""), pinset.status);
+        }
+
+      return -EPERM;
+    }
+
+  cmdid = apicmdgw_get_cmdid(APICMDID_ENTER_PIN);
+  if (cmdid == APICMDID_UNKNOWN)
+    {
+      return -ENETDOWN;
     }
 
   if (sync)
@@ -237,7 +294,7 @@ static int32_t lte_enterpin_impl(int8_t *pincode, int8_t *new_pincode,
   /* Allocate API command buffer to send */
 
   reqbuff = (FAR struct apicmd_cmddat_enterpin_s *)
-              apicmdgw_cmd_allocbuff(APICMDID_ENTER_PIN, REQ_DATA_LEN);
+              apicmdgw_cmd_allocbuff(cmdid, REQ_DATA_LEN);
   if (!reqbuff)
     {
       DBGIF_LOG_ERROR("Failed to allocate command buffer.\n");
@@ -300,10 +357,10 @@ errout:
  *   pincode       Current PIN code. Minimum number of digits is 4.
  *                 Maximum number of digits is 8, end with '\0'.
  *                 (i.e. Max 9 byte)
- *   new_pincode   If not used, set NULL. If the PIN is SIM PUK or SIM PUK2,
- *                 the new_pincode is required.
- *                 Minimum number of digits is 4. Maximum number of digits
- *                 is 8, end with '\0'. (i.e. Max 9 byte)
+ *   new_pincode   Always set NULL.
+ *                 This parameter is not currently used.
+ *                 If this parameter has a value in it,
+ *                 this API will error.
  *   simstat       State after PIN enter.
  *   attemptsleft  Number of attempts left. Set only if failed. If simstat is
  *                 other than PIN, PUK, PIN2, PUK2, set the number of PIN.
@@ -330,10 +387,10 @@ int32_t lte_enter_pin_sync(int8_t *pincode, int8_t *new_pincode,
  *   pincode       Current PIN code. Minimum number of digits is 4.
  *                 Maximum number of digits is 8, end with '\0'.
  *                 (i.e. Max 9 byte)
- *   new_pincode   If not used, set NULL. If the PIN is SIM PUK or SIM PUK2,
- *                 the new_pincode is required.
- *                 Minimum number of digits is 4. Maximum number of digits
- *                 is 8, end with '\0'. (i.e. Max 9 byte)
+ *   new_pincode   Always set NULL.
+ *                 This parameter is not currently used.
+ *                 If this parameter has a value in it,
+ *                 this API will error.
  *   callback      Callback function to notify that PIN enter is completed.
  *
  * Returned Value:
@@ -373,5 +430,6 @@ int32_t lte_enter_pin(int8_t *pincode, int8_t *new_pincode,
 enum evthdlrc_e apicmdhdlr_enterpin(FAR uint8_t *evt, uint32_t evlen)
 {
   return apicmdhdlrbs_do_runjob(evt,
-    APICMDID_CONVERT_RES(APICMDID_ENTER_PIN), enterpin_job);
+    APICMDID_CONVERT_RES(apicmdgw_get_cmdid(APICMDID_ENTER_PIN)),
+    enterpin_job);
 }
