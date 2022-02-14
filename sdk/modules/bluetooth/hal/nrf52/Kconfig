@@ -1,0 +1,53 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+
+config BLUETOOTH_NRF52
+	bool "Nordic nRF52 series"
+	default n
+	---help---
+		Nordic nRF52 provides BLE interfaces for application.
+
+if BLUETOOTH_NRF52
+
+choice
+	prompt "nRF52xxx & Soft Device"
+	default BLUETOOTH_NRF52_S132
+
+config BLUETOOTH_NRF52_S132
+	bool "Select nRF52832 & SoftDevice S132"
+
+config BLUETOOTH_NRF52_S140
+	bool "Select nRF52840 & SoftDevice S140"
+
+endchoice
+
+choice
+	prompt "Connected Interface"
+	default BLUETOOTH_NRF52_UART2
+
+config BLUETOOTH_NRF52_UART0
+	bool "nRF52 via UART0"
+	select CONFIG_CXD56_FARAPI
+
+config BLUETOOTH_NRF52_UART2
+	bool "nRF52 via UART2"
+	select CONFIG_CXD56_UART2
+
+endchoice
+
+if BLUETOOTH_NRF52_UART2
+
+config UART2_PARITY
+	int "Parity setting"
+	default 2
+	range 0 2
+	---help---
+		0=no parity, 1=odd parity, 2=even parity
+
+endif
+
+endif
+
