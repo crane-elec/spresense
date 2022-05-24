@@ -91,7 +91,7 @@ ret_code_t nrf_sdh_ble_default_cfg_set(uint8_t conn_cfg_tag, uint32_t * p_ram_st
     ret_code = sd_ble_cfg_set(BLE_CONN_CFG_GAP, &ble_cfg, *p_ram_start);
     if (ret_code != NRF_SUCCESS)
     {
-        BLE_PRT("sd_ble_cfg_set NG %d\n", ret_code);
+        BLE_PRT("sd_ble_cfg_set NG %ld\n", ret_code);
         return ret_code;
     }
 
@@ -109,7 +109,7 @@ ret_code_t nrf_sdh_ble_default_cfg_set(uint8_t conn_cfg_tag, uint32_t * p_ram_st
     ret_code = sd_ble_cfg_set(BLE_GAP_CFG_ROLE_COUNT, &ble_cfg, *p_ram_start);
     if (ret_code != NRF_SUCCESS)
     {
-        BLE_PRT("sd_ble_cfg_set NG %d\n", ret_code);
+        BLE_PRT("sd_ble_cfg_set NG %ld\n", ret_code);
         return ret_code;
     }
 
@@ -122,7 +122,7 @@ ret_code_t nrf_sdh_ble_default_cfg_set(uint8_t conn_cfg_tag, uint32_t * p_ram_st
     ret_code = sd_ble_cfg_set(BLE_CONN_CFG_GATT, &ble_cfg, *p_ram_start);
     if (ret_code != NRF_SUCCESS)
     {
-        BLE_PRT("sd_ble_cfg_set NG %d\n", ret_code);
+        BLE_PRT("sd_ble_cfg_set NG %ld\n", ret_code);
         return ret_code;
     }
 #endif  // NRF_SDH_BLE_GATT_MAX_MTU_SIZE != 23
@@ -135,7 +135,7 @@ ret_code_t nrf_sdh_ble_default_cfg_set(uint8_t conn_cfg_tag, uint32_t * p_ram_st
     ret_code = sd_ble_cfg_set(BLE_COMMON_CFG_VS_UUID, &ble_cfg, *p_ram_start);
     if (ret_code != NRF_SUCCESS)
     {
-        BLE_PRT("sd_ble_cfg_set NG %d\n", ret_code);
+        BLE_PRT("sd_ble_cfg_set NG %ld\n", ret_code);
         return ret_code;
     }
 
@@ -146,7 +146,7 @@ ret_code_t nrf_sdh_ble_default_cfg_set(uint8_t conn_cfg_tag, uint32_t * p_ram_st
     ret_code = sd_ble_cfg_set(BLE_GATTS_CFG_ATTR_TAB_SIZE, &ble_cfg, *p_ram_start);
     if (ret_code != NRF_SUCCESS)
     {
-        BLE_PRT("sd_ble_cfg_set NG %d\n", ret_code);
+        BLE_PRT("sd_ble_cfg_set NG %ld\n", ret_code);
         return ret_code;
     }
 
@@ -157,7 +157,7 @@ ret_code_t nrf_sdh_ble_default_cfg_set(uint8_t conn_cfg_tag, uint32_t * p_ram_st
     ret_code = sd_ble_cfg_set(BLE_GATTS_CFG_SERVICE_CHANGED, &ble_cfg, *p_ram_start);
     if (ret_code != NRF_SUCCESS)
     {
-        BLE_PRT("sd_ble_cfg_set NG %d\n", ret_code);
+        BLE_PRT("sd_ble_cfg_set NG %ld\n", ret_code);
         return ret_code;
     }
 
@@ -234,7 +234,7 @@ void nrf_sdh_ble_evts_poll(void * p_context)
             handler(p_ble_evt, p_observer->p_context);
         }
 #else
-    //BLE_PRT("BLE event !!\n");
+    BLE_PRT("BLE event !!\n");
     bleEvtDispatch(p_ble_evt);
 #endif
     }

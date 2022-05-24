@@ -210,7 +210,7 @@ static __INLINE void callback_packet_received(void)
 static int ser_phy_uart_rx(uint8_t rx_byte)
 {
 	int ret = 0;
-	BLE_PRT("ser_phy_uart_rx\n");
+//	BLE_PRT("ser_phy_uart_rx\n");
 
 	if (mp_rx_stream == NULL )
 	{
@@ -247,7 +247,7 @@ static int ser_phy_uart_rx(uint8_t rx_byte)
 	{
 		callback_packet_received();
 	}
-	BLE_PRT("ser_phy_uart_rx END\n");
+//	BLE_PRT("ser_phy_uart_rx END\n");
 	return ret;
 }
 
@@ -571,7 +571,7 @@ static __INLINE void callback_packet_sent(void)
 static int ser_phy_uart_send_char(uint8_t byte)
 {
 	ssize_t sent_len = 0;
-	BLE_PRT("Send 0x%02x\n", byte);
+	//BLE_PRT("Send 0x%02x\n", byte);
 
 #if defined(CONFIG_BLUETOOTH_NRF52_UART0)
 	do
@@ -610,6 +610,7 @@ static int ser_phy_uart_send(void* buf, int size)
 	for(index=0; index<size; index++)
 	{
 		ret = ser_phy_uart_send_char(*((uint8_t *)buf+index));
+		BLE_PRT("Send %#x\n", *((uint8_t *)buf+index));
 		if (ret < 0) return ret;
 	}
 	return NRF_SUCCESS;
@@ -617,7 +618,7 @@ static int ser_phy_uart_send(void* buf, int size)
 
 uint32_t ser_phy_tx_pkt_send(const uint8_t * p_buffer, uint16_t num_of_bytes)
 {
-	BLE_PRT("ser_phy_tx_pkt_send num %d\n", num_of_bytes);
+//	BLE_PRT("ser_phy_tx_pkt_send num %d\n", num_of_bytes);
 	if (p_buffer == NULL)
 	{
 		return NRF_ERROR_NULL;

@@ -204,6 +204,10 @@ typedef enum
   BT_VIS_DISCOVERY_CONNECTABLE       = 3  /**< Discoverable and connectable */
 } BT_VISIBILITY;
 
+#ifdef CONFIG_BLUETOOTH_NRF52
+#include "../../bluetooth/hal/nrf52/components/softdevice/s132/headers/ble_types.h"
+#define BLE_APPEARANCE int
+#else
 /**
  * @enum BLE_APPEARANCE
  * @brief BLE appearance ID
@@ -250,6 +254,7 @@ typedef enum
   BLE_APPEARANCE_CYCLING_POWER_SENSOR             = 1156,
   BLE_APPEARANCE_CYCLING_SPEED_AND_CADENCE_SENSOR = 1157,
 } BLE_APPEARANCE;
+#endif
 
 /**
  * @enum BLE_GAP_IO_CAP

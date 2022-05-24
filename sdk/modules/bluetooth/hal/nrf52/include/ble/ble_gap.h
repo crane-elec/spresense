@@ -1,8 +1,7 @@
 /****************************************************************************
- * apps/include/ble/ble_gap.h
+ * modules/bluetooth/hal/nrf52/include/ble/ble_gap.h
  *
- *   Copyright (C) 2016 Sony Corporation. All rights reserved.
- *   Author: Wen, Yuchi <Yuchi.Wen@sony.com>
+ *   Copyright 2018 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,9 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name NuttX nor Sony nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+ *    the names of its contributors may be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -32,12 +32,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 /**
  * @file       ble_gap.h
  */
 
-#ifndef BLE_GAP_H
-#define BLE_GAP_H
+#ifndef __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_GAP_H
+#define __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_GAP_H
 
 /**
  * @defgroup BLE Bluetooth LE GAP
@@ -47,9 +48,10 @@
  * @{
  */
 
-/*-----------------------------------------------------------------------------
- * include files
- *---------------------------------------------------------------------------*/
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
 
 #include <stdint.h>
 #include <ble/ble_gatts.h>
@@ -255,314 +257,343 @@ extern "C" {
  */
 
 /**@brief Passkey configure */
-enum {
-	SEC_CFG_PASSKEY = TYPE_SEC_CFG_BASE, /**< Security configura type passkey */
+enum
+{
+  SEC_CFG_PASSKEY = TYPE_SEC_CFG_BASE, /**< Security configura type passkey */
 };
 
-/**@brief BLE IO capability */
-typedef enum {
-	BLE_GAP_IO_CAP_DISPLAY_ONLY = 0,   /**< Display Only */
-	BLE_GAP_IO_CAP_DISPLAY_YESNO,      /**< Display and Yes/No entry */
-	BLE_GAP_IO_CAP_KEYBOARD_ONLY,      /**< Keyboard Only */
-	BLE_GAP_IO_CAP_NO_INPUT_NO_OUTPUT, /**< No Input No Output */
-	BLE_GAP_IO_CAP_KEYBOARD_DISPLAY,   /**< Keyboard and Display */
-}BLE_GapIoCap;
-
 /**@brief Out Of Band information*/
-typedef enum {
-	BLE_GAP_OOB_AUTH_DATA_NOT_PRESENT = 0, /**< Out of band not present */
-	BLE_GAP_OOB_AUTH_DATA_PRESENT,         /**< Out of band present */
-}BLE_GapOOB;
+typedef enum
+{
+  BLE_GAP_OOB_AUTH_DATA_NOT_PRESENT = 0, /**< Out of band not present */
+  BLE_GAP_OOB_AUTH_DATA_PRESENT,         /**< Out of band present */
+} BLE_GapOOB;
 
 /**@brief Authentication masks */
-enum BLE_GapAuthMask {
-	BLE_GAP_AUTH_NONE = 0,        /**< Auth none */
-	BLE_GAP_AUTH_BOND = (1 << 0), /**< Auth bond */
-	BLE_GAP_AUTH_MITM = (1 << 1), /**< Auth mitm */
+enum BLE_GapAuthMask
+{
+  BLE_GAP_AUTH_NONE = 0,        /**< Auth none */
+  BLE_GAP_AUTH_BOND = (1 << 0), /**< Auth bond */
+  BLE_GAP_AUTH_MITM = (1 << 1), /**< Auth mitm */
 };
 
 /**@brief Authentication requirements */
-typedef enum {
-	BLE_GAP_AUTH_REQ_NO_MITM_NO_BOND = (BLE_GAP_AUTH_NONE), /**< No MITM No Bonding */
-	BLE_GAP_AUTH_REQ_NO_MITM_BOND    = (BLE_GAP_AUTH_BOND), /**< No MITM Bonding */
-	BLE_GAP_AUTH_REQ_MITM_NO_BOND    = (BLE_GAP_AUTH_MITM), /**< MITM No Bonding */
-	BLE_GAP_AUTH_REQ_MITM_BOND       = (BLE_GAP_AUTH_MITM | BLE_GAP_AUTH_BOND), /**< MITM and Bonding */
-}BLE_GapAuth;
+typedef enum
+{
+  BLE_GAP_AUTH_REQ_NO_MITM_NO_BOND = (BLE_GAP_AUTH_NONE), /**< No MITM No Bonding */
+  BLE_GAP_AUTH_REQ_NO_MITM_BOND    = (BLE_GAP_AUTH_BOND), /**< No MITM Bonding */
+  BLE_GAP_AUTH_REQ_MITM_NO_BOND    = (BLE_GAP_AUTH_MITM), /**< MITM No Bonding */
+  BLE_GAP_AUTH_REQ_MITM_BOND       = (BLE_GAP_AUTH_MITM | BLE_GAP_AUTH_BOND), /**< MITM and Bonding */
+} BLE_GapAuth;
 
 /**@brief GATT appearance definitions */
-typedef enum {
-	APPEARANCE_GENERIC_PHONE                    = 64,
-	APPEARANCE_GENERIC_COMPUTER                 = 128,
-	APPEARANCE_GENERIC_WATCH                    = 192,
-	APPEARANCE_WATCH_SPORTS                     = 193,
-	APPEARANCE_GENERIC_CLOCK                    = 256,
-	APPEARANCE_GENERIC_DISPLAY                  = 320,
-	APPEARANCE_GENERIC_REMOTE_CONTROL           = 384,
-	APPEARANCE_GENERIC_EYE_GLASSES              = 448,
-	APPEARANCE_GENERIC_TAG                      = 512,
-	APPEARANCE_GENERIC_KEYRING                  = 576,
-	APPEARANCE_GENERIC_MEDIA_PLAYER             = 640,
-	APPEARANCE_GENERIC_BARCODE_SCANNER          = 704,
-	APPEARANCE_GENERIC_THERMOMETER              = 768,
-	APPEARANCE_THERMOMETER_EAR                  = 769,
-	APPEARANCE_GENERIC_HEART_RATE_SENSOR        = 832,
-	APPEARANCE_HEART_RATE_BELT                  = 833,
-	APPEARANCE_GENERIC_BLOOD_PRESSURE           = 896,
-	APPEARANCE_BLOOD_PRESSURE_ARM               = 897,
-	APPEARANCE_BLOOD_PRESSURE_WRIST             = 898,
-	APPEARANCE_GENERIC_HID_DEVICE               = 960,
-	APPEARANCE_HID_KEYBOARD                     = 961,
-	APPEARANCE_HID_MOUSE                        = 962,
-	APPEARANCE_HID_JOYSTICK                     = 963,
-	APPEARANCE_HID_GAMEPAD                      = 964,
-	APPEARANCE_HID_DIGITIZER_TABLET             = 965,
-	APPEARANCE_HID_CARD_READER                  = 966,
-	APPEARANCE_HID_DIGITAL_PEN                  = 967,
-	APPEARANCE_HID_BARCODE_SCANNER              = 968,
-	APPEARANCE_GENERIC_GLUCOSE_METER            = 1024,
-	APPEARANCE_GENERIC_RUNNING_WALKING_SENSOR   = 1088,
-	APPEARANCE_RUNNING_WALKING_SENSOR_IN_SHOE   = 1089,
-	APPEARANCE_RUNNING_WALKING_SENSOR_ON_SHOE   = 1090,
-	APPEARANCE_RUNNING_WALKING_SENSOR_ON_HIP    = 1091,
-	APPEARANCE_GENERIC_CYCLING                  = 1152,
-	APPEARANCE_CYCLING_COMPUTER                 = 1153,
-	APPEARANCE_CYCLING_SPEED_SENSOR             = 1154,
-	APPEARANCE_CYCLING_CADENCE_SENSOR           = 1155,
-	APPEARANCE_CYCLING_POWER_SENSOR             = 1156,
-	APPEARANCE_CYCLING_SPEED_AND_CADENCE_SENSOR = 1157,
-}BLE_GAP_APPEARANCE;
+typedef enum
+{
+  APPEARANCE_GENERIC_PHONE                    = 64,
+  APPEARANCE_GENERIC_COMPUTER                 = 128,
+  APPEARANCE_GENERIC_WATCH                    = 192,
+  APPEARANCE_WATCH_SPORTS                     = 193,
+  APPEARANCE_GENERIC_CLOCK                    = 256,
+  APPEARANCE_GENERIC_DISPLAY                  = 320,
+  APPEARANCE_GENERIC_REMOTE_CONTROL           = 384,
+  APPEARANCE_GENERIC_EYE_GLASSES              = 448,
+  APPEARANCE_GENERIC_TAG                      = 512,
+  APPEARANCE_GENERIC_KEYRING                  = 576,
+  APPEARANCE_GENERIC_MEDIA_PLAYER             = 640,
+  APPEARANCE_GENERIC_BARCODE_SCANNER          = 704,
+  APPEARANCE_GENERIC_THERMOMETER              = 768,
+  APPEARANCE_THERMOMETER_EAR                  = 769,
+  APPEARANCE_GENERIC_HEART_RATE_SENSOR        = 832,
+  APPEARANCE_HEART_RATE_BELT                  = 833,
+  APPEARANCE_GENERIC_BLOOD_PRESSURE           = 896,
+  APPEARANCE_BLOOD_PRESSURE_ARM               = 897,
+  APPEARANCE_BLOOD_PRESSURE_WRIST             = 898,
+  APPEARANCE_GENERIC_HID_DEVICE               = 960,
+  APPEARANCE_HID_KEYBOARD                     = 961,
+  APPEARANCE_HID_MOUSE                        = 962,
+  APPEARANCE_HID_JOYSTICK                     = 963,
+  APPEARANCE_HID_GAMEPAD                      = 964,
+  APPEARANCE_HID_DIGITIZER_TABLET             = 965,
+  APPEARANCE_HID_CARD_READER                  = 966,
+  APPEARANCE_HID_DIGITAL_PEN                  = 967,
+  APPEARANCE_HID_BARCODE_SCANNER              = 968,
+  APPEARANCE_GENERIC_GLUCOSE_METER            = 1024,
+  APPEARANCE_GENERIC_RUNNING_WALKING_SENSOR   = 1088,
+  APPEARANCE_RUNNING_WALKING_SENSOR_IN_SHOE   = 1089,
+  APPEARANCE_RUNNING_WALKING_SENSOR_ON_SHOE   = 1090,
+  APPEARANCE_RUNNING_WALKING_SENSOR_ON_HIP    = 1091,
+  APPEARANCE_GENERIC_CYCLING                  = 1152,
+  APPEARANCE_CYCLING_COMPUTER                 = 1153,
+  APPEARANCE_CYCLING_SPEED_SENSOR             = 1154,
+  APPEARANCE_CYCLING_CADENCE_SENSOR           = 1155,
+  APPEARANCE_CYCLING_POWER_SENSOR             = 1156,
+  APPEARANCE_CYCLING_SPEED_AND_CADENCE_SENSOR = 1157,
+} BLE_GAP_APPEARANCE;
 
 /**@brief GAP set/get gap address paramters. */
-typedef struct BLE_GapAddr_t {
-	uint8_t mode;                       /**< Address mode (Not supported when you use nrf52 BLE chip module) */
-	uint8_t type;                       /**< Address type, See @ref BLE_GAP_ADDR_TYPES. */
-	uint8_t reserve[2];                 /**< Reserve */
-	uint8_t addr[BLE_GAP_ADDR_LENGTH];  /**< Address data, the size of the address is 48 bits */
-}BLE_GapAddr;
+typedef struct BLE_GapAddr_t
+{
+  uint8_t mode;                       /**< Address mode (Not supported when you use nrf52 BLE chip module) */
+  uint8_t type;                       /**< Address type, See @ref BLE_GAP_ADDR_TYPES. */
+  uint8_t reserve[2];                 /**< Reserve */
+  uint8_t addr[BLE_GAP_ADDR_LENGTH];  /**< Address data, the size of the address is 48 bits */
+} BLE_GapAddr;
 
 /**@brief GAP set/get gap name parameters.*/
-typedef struct BLE_GapName_t {
-	uint16_t size;      /**< The size of the gap name */
-	uint8_t reserve[2]; /**< Reserve */
-	uint8_t *name;      /**< Pointer to gap name data */
-	BLE_SecMode pNameWritePerm; /**< Permission of name writable  */
-}BLE_GapName;
+typedef struct BLE_GapName_t
+{
+  uint16_t size;      /**< The size of the gap name */
+  uint8_t reserve[2]; /**< Reserve */
+  uint8_t *name;      /**< Pointer to gap name data */
+  BLE_SEC_MODE pNameWritePerm; /**< Permission of name writable  */
+} BLE_GapName;
 
 /**@brief GAP set/get device configuration information. */
-typedef struct BLE_GapDeviceConfig_t {
-	uint8_t type;       /**< Types of configuration information, @ref Device Config Type */
-	uint8_t reserve[3]; /**< Reserve */
-	void *data;         /**< Configuration data, @ref Device Config Type */
-}BLE_GapDeviceConfig;
+typedef struct BLE_GapDeviceConfig_t
+{
+  uint8_t type;       /**< Types of configuration information, @ref Device Config Type */
+  uint8_t reserve[3]; /**< Reserve */
+  void *data;         /**< Configuration data, @ref Device Config Type */
+} BLE_GapDeviceConfig;
 
 /**@brief Connection handler */
 typedef uint16_t BLE_GapConnHandle;
 
 /**@brief Advertising structure */
-typedef struct BLE_GapAdvStructure_t {
-	uint8_t    advLength;  /**< The size of the advertising structure */
-	uint8_t    reserve[3]; /**< Reserve */
-	uint8_t    *advData;   /**< advertising structure data */
-}BLE_GapAdvStructure;
+typedef struct BLE_GapAdvStructure_t
+{
+  uint8_t    advLength;  /**< The size of the advertising structure */
+  uint8_t    reserve[3]; /**< Reserve */
+  uint8_t    *advData;   /**< advertising structure data */
+} BLE_GapAdvStructure;
 
 /**@brief Advertising data structure */
-typedef struct BLE_GapAdvData_t {
-	uint8_t                flags;                    /**< Flags */
-	int8_t                 txPower;                  /**< Range -127 ~ 127 dBm, the tx power isn't added into advertise data when value is ADV_DATA_TX_POWER_INVILID_VALUE  */
-	uint16_t               complete16Uuid;           /**< Complete List of 16-bit Service Class UUIDs */
-	uint32_t               complete32Uuid;           /**< Complete List of 32-bit Service Class UUIDs */
-	uint8_t                *complete128Uuid;      /**< Complete List of 128-bit Service Class UUIDs */
-	BLE_GapAdvStructure    completeLocalName;        /**< Complete Local Name */
-	BLE_GapAdvStructure    manufacturerSpecificData; /**< Manufacturer Specific Data */
-	BLE_GapAdvStructure*   serviceData;              /**< Array of Service data structures. */
-	uint8_t                serviceDataCount;         /**< Number of Service data structures. */
-}BLE_GapAdvData;
+typedef struct BLE_GapAdvData_t
+{
+  uint8_t                flags;                    /**< Flags */
+  int8_t                 txPower;                  /**< Range -127 ~ 127 dBm, the tx power isn't added into advertise data when value is ADV_DATA_TX_POWER_INVILID_VALUE  */
+  uint16_t               complete16Uuid;           /**< Complete List of 16-bit Service Class UUIDs */
+  uint32_t               complete32Uuid;           /**< Complete List of 32-bit Service Class UUIDs */
+  uint8_t                *complete128Uuid;      /**< Complete List of 128-bit Service Class UUIDs */
+  BLE_GapAdvStructure    completeLocalName;        /**< Complete Local Name */
+  BLE_GapAdvStructure    manufacturerSpecificData; /**< Manufacturer Specific Data */
+  BLE_GapAdvStructure*   serviceData;              /**< Array of Service data structures. */
+  uint8_t                serviceDataCount;         /**< Number of Service data structures. */
+} BLE_GapAdvData;
 
 /**@brief Advertising parameters */
-typedef struct BLE_GapAdvParams_t {
-	uint32_t   interval;                /**< Advertising interval in 625 us units. (0x000020 ~ 0x004000) */
-	uint16_t   duration;                /**< Advertising duration in 10 ms units. */
-	uint8_t    primary_phy;             /**< Indicates the PHY on which the primary advertising channel packets are transmitted. The PHY is @ref BLE_GAP_PHYS. */
-	uint8_t    reserve; /**< Reserve */
-}BLE_GapAdvParams;
+typedef struct BLE_GapAdvParams_t
+{
+  uint32_t   interval;                /**< Advertising interval in 625 us units. (0x000020 ~ 0x004000) */
+  uint16_t   duration;                /**< Advertising duration in 10 ms units. */
+  uint8_t    primary_phy;             /**< Indicates the PHY on which the primary advertising channel packets are transmitted. The PHY is @ref BLE_GAP_PHYS. */
+  uint8_t    reserve; /**< Reserve */
+} BLE_GapAdvParams;
 
 /**@brief Scan parameters */
-typedef struct {
-	uint8_t     active;      /**< If 1, perform active scanning (scan requests). */
-	uint16_t    interval;    /**< Scan interval between 0x0004 and 0x4000 in 0.625ms units (2.5ms to 10.24s), return error if out of range. */
-	uint16_t    window;      /**< Scan window between 0x0004 and 0x4000 in 0.625ms units (2.5ms to 10.24s), return error if out of range. */
-	uint16_t    timeout;     /**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout, return error if out of range. */
-	uint8_t     scan_phys;   /**< Indicates the PHYs to scan on. The PHY is @ref BLE_GAP_PHYS. */
-	int8_t      tx_power;    /**< Radio transmit power in dBm. */
-}BLE_GapScanParams;
+typedef struct
+{
+  uint8_t     active;      /**< If 1, perform active scanning (scan requests). */
+  uint16_t    interval;    /**< Scan interval between 0x0004 and 0x4000 in 0.625ms units (2.5ms to 10.24s), return error if out of range. */
+  uint16_t    window;      /**< Scan window between 0x0004 and 0x4000 in 0.625ms units (2.5ms to 10.24s), return error if out of range. */
+  uint16_t    timeout;     /**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout, return error if out of range. */
+  uint8_t     scan_phys;   /**< Indicates the PHYs to scan on. The PHY is @ref BLE_GAP_PHYS. */
+  int8_t      tx_power;    /**< Radio transmit power in dBm. */
+} BLE_GapScanParams;
 
 /**@brief Passkey configure, Config Type: @ref SEC_CFG_PASSKEY
  */
-typedef struct {
-	char *passkey; /**< Pointer to passkey. The passkey is numeric value. Valid values are decimal 000000 - 999999.*/
-}BLE_GapSecCfgPasskey;
+typedef struct
+{
+  char *passkey; /**< Pointer to passkey. The passkey is numeric value. Valid values are decimal 000000 - 999999.*/
+} BLE_GapSecCfgPasskey;
 
 /**@brief  Security configure type */
-typedef struct {
-	uint32_t    type;  /**< The type of security configuration */
-	void        *data; /**< Security configure data, the following data structure is supported now: @ref BLE_GapSecCfgPasskey */
-}BLE_GapSecCfg;
+typedef struct
+{
+  uint32_t    type;  /**< The type of security configuration */
+  void        *data; /**< Security configure data, the following data structure is supported now: @ref BLE_GapSecCfgPasskey */
+} BLE_GapSecCfg;
 
 /**@brief Pairing Feature structure */
-typedef struct {
-	BLE_GapIoCap        ioCap; /**< IO capabilities */
-	BLE_GapOOB            oob; /**< Out Of Band information */
-	BLE_GapAuth       authReq; /**< Authentication requirements */
-	uint8_t        minKeySize; /**< Minimum encryption key size in octets between 7 and 16 */
-	uint8_t        maxKeySize; /**< Maximum encryption key size in octets between min_key_size and 16 */
-}BLE_GapPairingFeature;
+typedef struct
+{
+  BLE_GAP_IO_CAP      ioCap; /**< IO capabilities */
+  BLE_GapOOB            oob; /**< Out Of Band information */
+  BLE_GapAuth       authReq; /**< Authentication requirements */
+  uint8_t        minKeySize; /**< Minimum encryption key size in octets between 7 and 16 */
+  uint8_t        maxKeySize; /**< Maximum encryption key size in octets between min_key_size and 16 */
+} BLE_GapPairingFeature;
 
 /**@brief Authentication key structure */
-typedef struct {
-	BLE_GapConnHandle    handle;  /**< Connection handle */
-	uint8_t              keyType; /**< Authentication key type, the following three GAP authentication key types are supported: @ref BLE_GAP_AUTH_KEY_TYPE_NONE, @ref BLE_GAP_AUTH_KEY_TYPE_PASSKEY, @ref BLE_GAP_AUTH_KEY_TYPE_OOB */
-	uint8_t              keyLen;  /**< The size of authentication key */
-	uint8_t              *key;    /**< Authentication key */
-}BLE_GapAuthKey;
+typedef struct
+{
+  BLE_GapConnHandle    handle;  /**< Connection handle */
+  uint8_t              keyType; /**< Authentication key type, the following three GAP authentication key types are supported: @ref BLE_GAP_AUTH_KEY_TYPE_NONE, @ref BLE_GAP_AUTH_KEY_TYPE_PASSKEY, @ref BLE_GAP_AUTH_KEY_TYPE_OOB */
+  uint8_t              keyLen;  /**< The size of authentication key */
+  uint8_t              *key;    /**< Authentication key */
+} BLE_GapAuthKey;
 
 /**@brief Bond information. */
-typedef struct {
-	uint8_t addrType;                    /**< See @ref BLE_GAP_ADDR_TYPES. */
-	uint8_t addr[BLE_GAP_ADDR_LENGTH];   /**< 48-bit address, LSB format. */
-}BLE_GapBondInfo;
+typedef struct
+{
+  uint8_t addrType;                    /**< See @ref BLE_GAP_ADDR_TYPES. */
+  uint8_t addr[BLE_GAP_ADDR_LENGTH];   /**< 48-bit address, LSB format. */
+} BLE_GapBondInfo;
 
 /**@brief Bonded information list structure. */
-typedef struct {
-	uint32_t bondNum;
-	uint8_t bondInfoId[BLE_SAVE_BOND_DEVICE_MAX_NUM][BLE_GAP_ADDR_LENGTH];
-	uint8_t didInfo[BLE_SAVE_BOND_DEVICE_MAX_NUM][BLE_DID_INFO_LEN];     /**< BLE DID information, please ref@ BT_DID_VendorInfo*/
-}BLE_GapBondInfoList;
+typedef struct
+{
+  uint32_t bondNum;
+  uint8_t bondInfoId[BLE_SAVE_BOND_DEVICE_MAX_NUM][BLE_GAP_ADDR_LENGTH];
+  uint8_t didInfo[BLE_SAVE_BOND_DEVICE_MAX_NUM][BLE_DID_INFO_LEN];     /**< BLE DID information, please ref@ BT_DID_VendorInfo*/
+} BLE_GapBondInfoList;
 
 /**@brief Connection parameters */
-typedef struct {
-	uint16_t minConnInterval; /**< Minimum Connection Interval in 1.25 ms units. (7.5ms - 4s) */
-	uint16_t maxConnInterval; /**< Maximum Connection Interval in 1.25 ms units. (7.5ms - 4s) */
-	uint16_t slaveLatency;    /**< Slave Latency in number of connection events. (max 499) */
-	uint16_t connSupTimeout;  /**< Connection Supervision Timeout in 10 ms unit. (100ms - 32s) */
-}BLE_GapConnParams;
+typedef struct
+{
+  uint16_t minConnInterval; /**< Minimum Connection Interval in 1.25 ms units. (7.5ms - 4s) */
+  uint16_t maxConnInterval; /**< Maximum Connection Interval in 1.25 ms units. (7.5ms - 4s) */
+  uint16_t slaveLatency;    /**< Slave Latency in number of connection events. (max 499) */
+  uint16_t connSupTimeout;  /**< Connection Supervision Timeout in 10 ms unit. (100ms - 32s) */
+} BLE_GapConnParams;
 
-/**@brief phy update parameters */
-typedef struct {
-	uint8_t txPhy; /**< Preferred transmit PHYs, see @ref BLE_GAP_PHYS. */
-	uint8_t rxPhy; /**< Preferred receive PHYs, see @ref BLE_GAP_PHYS. */
-}BLE_GapPhys;
+typedef struct
+{
+  uint8_t txPhy; /**< Preferred transmit PHYs, see @ref BLE_GAP_PHYS. */
+  uint8_t rxPhy; /**< Preferred receive PHYs, see @ref BLE_GAP_PHYS. */
+} BLE_GapPhys;
 
 /**@brief Connection established
  * @details  When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_CONNECTED, and the member evtData is point to @ref BLE_EvtGapConnected_t structure.
  */
-typedef struct BLE_EvtGapConnected_t {
-	BLE_GapConnHandle    handle; /**< Connection handle */
-	BLE_GapAddr          addr;   /**< Bluetooth address of the peer device */
-	uint8_t              role;   /**< BLE role for this connection */
-}BLE_EvtConnected;
+typedef struct BLE_EvtGapConnected_t
+{
+  BLE_GapConnHandle    handle; /**< Connection handle */
+  BLE_GapAddr          addr;   /**< Bluetooth address of the peer device */
+  uint8_t              role;   /**< BLE role for this connection */
+} BLE_EvtConnected;
 
 /**@brief Connection parameters updated
  * @details  When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_CONN_PARAM_UPDATE, and the member evtData is point to @ref BLE_EvtConnParamUpdate structure.
  */
-typedef struct {
-	uint8_t              status;     /**< Connection parameters update status */
-	BLE_GapConnParams    connParams; /**< Connection parameters */
-}BLE_EvtConnParamUpdate;
+typedef struct
+{
+  uint8_t              status;     /**< Connection parameters update status */
+  BLE_GapConnParams    connParams; /**< Connection parameters */
+} BLE_EvtConnParamUpdate;
+
+/**@brief peer device MTU event,
+ * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_CONN_PEER_MTU, and the member evtData is point to @ref BLE_EvtPeerMtu structure.
+ */
 
 /**@brief Disconnected from peer
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_DISCONNECTED, and the member evtData is point to @ref BLE_EvtGapDisconnected_t structure.
  */
-typedef struct BLE_EvtGapDisconnected_t {
-	BLE_GapConnHandle    handle; /**< Connection handle */
-	uint8_t              reason; /**< Disconnected reason */
-}BLE_EvtDisconnected;
+typedef struct BLE_EvtGapDisconnected_t
+{
+  BLE_GapConnHandle    handle; /**< Connection handle */
+  uint8_t              reason; /**< Disconnected reason */
+} BLE_EvtDisconnected;
 
-/**@brief Exchange pairing feature event, it contains peer devicefs pairing feature.
+/**@brief Exchange pairing feature event, it contains peer deviceâ€™s pairing feature.
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_EXCHANGE_FEATURE, and the member evtData is point to @ref BLE_EvtExchangeFeature structure.
  */
-typedef struct {
-	BLE_GapConnHandle        handle;      /**< Connection handle */
-	BLE_GapPairingFeature    peerFeature; /**< Pairing feature */
-}BLE_EvtExchangeFeature;
+typedef struct
+{
+  BLE_GapConnHandle        handle;      /**< Connection handle */
+  BLE_GapPairingFeature    peerFeature; /**< Pairing feature */
+} BLE_EvtExchangeFeature;
 
 /**@brief Pairing result event.
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_AUTH_STATUS, and the member evtData is point to @ref BLE_EvtAuthStatus structure.
  */
-typedef struct {
-	BLE_GapConnHandle        handle;      /**< Connection handle */
-	uint8_t                  status;      /**< Pairing result event */
-	uint8_t                  reserve;     /**< Reserver */
-	BLE_GapBondInfo          bondInfo;    /**< Bond information */
-}BLE_EvtAuthStatus;
+typedef struct
+{
+  BLE_GapConnHandle        handle;      /**< Connection handle */
+  uint8_t                  status;      /**< Pairing result event */
+  uint8_t                  reserve;     /**< Reserver */
+  BLE_GapBondInfo          bondInfo;    /**< Bond information */
+} BLE_EvtAuthStatus;
 
 /**@brief Display passkey event structure
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_DISPLAY_PASSKEY, and the member evtData is point to @ref BLE_EvtDisplayPasskey structure.
  */
-typedef struct {
-	BLE_GapConnHandle        handle;                         /**< Connection handle */
-	uint8_t                  passkey[BLE_GAP_PASSKEY_LEN+1]; /**< 6-digit passkey ASCII 000000~999999 + 0x00 */
-}BLE_EvtDisplayPasskey;
+typedef struct
+{
+  BLE_GapConnHandle        handle;                         /**< Connection handle */
+  uint8_t                  passkey[BLE_GAP_PASSKEY_LEN+1]; /**< 6-digit passkey ASCII 000000~999999 + 0x00 */
+} BLE_EvtDisplayPasskey;
 
 /**@brief Advertising report event structure
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_ADV_REPORT, and the member evtData is point to @ref BLE_EvtAdvReportData structure.
  */
-typedef struct {
-	int8_t rssi;                        /**< Received Signal Strength Indication in dBm. */
-	uint8_t scan_rsp;                   /**< If 1, the report corresponds to a scan response */
-	uint8_t dlen;                       /**< Scan response data length */
-	uint8_t data[BLE_GAP_ADV_MAX_SIZE]; /**< Scan response data */
-	BLE_GapAddr addr;                   /**< Bluetooth address of the peer device */
-}BLE_EvtAdvReportData;
+typedef struct
+{
+  int8_t rssi;                        /**< Received Signal Strength Indication in dBm. */
+  uint8_t scan_rsp;                   /**< If 1, the report corresponds to a scan response */
+  uint8_t dlen;                       /**< Scan response data length */
+  uint8_t data[BLE_GAP_ADV_MAX_SIZE]; /**< Scan response data */
+  BLE_GapAddr addr;                   /**< Bluetooth address of the peer device */
+} BLE_EvtAdvReportData;
 
 /**@brief Request to provide an authentication key event structure
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_AUTH_KEY_REQUEST, and the member evtData is point to @ref BLE_EvtAuthKey structure.
  */
-typedef struct {
-	BLE_GapConnHandle        handle;      /**< Connection handle */
-	uint8_t                  keyType;     /**< GAP authentication key types */
-	uint8_t                  reserve;     /**< Reserver */
-}BLE_EvtAuthKey;
+typedef struct
+{
+  BLE_GapConnHandle        handle;      /**< Connection handle */
+  uint8_t                  keyType;     /**< GAP authentication key types */
+  uint8_t                  reserve;     /**< Reserver */
+} BLE_EvtAuthKey;
 
 /**@brief Event structure for @ref BLE_GAP_EVENT_TIMEOUT
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_TIMEOUT, and the member evtData is point to @ref BLE_EvtTimeout structure.
  */
-typedef struct {
-	BLE_GapConnHandle        handle;      /**< Connection handle */
-	uint8_t                  timeoutSrc;  /**< Timeout reason, The following four timeout reasons are supported: @ref BLE_GAP_TIMEOUT_ADVERTISING, @ref BLE_GAP_TIMEOUT_SECURITY_REQUEST, @ref BLE_GAP_TIMEOUT_SCAN, @ref BLE_GAP_TIMEOUT_CONN */
-	uint8_t                  reserve;     /**< Reserver */
-}BLE_EvtTimeout;
+typedef struct
+{
+  BLE_GapConnHandle        handle;      /**< Connection handle */
+  uint8_t                  timeoutSrc;  /**< Timeout reason, The following four timeout reasons are supported: @ref BLE_GAP_TIMEOUT_ADVERTISING, @ref BLE_GAP_TIMEOUT_SECURITY_REQUEST, @ref BLE_GAP_TIMEOUT_SCAN, @ref BLE_GAP_TIMEOUT_CONN */
+  uint8_t                  reserve;     /**< Reserver */
+} BLE_EvtTimeout;
 
 /**@brief RSSI change report event structure
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_RSSI_CHANGED, and the member evtData is point to @ref BLE_EvtRssiChanged structure.
  */
-typedef struct {
-	BLE_GapConnHandle        handle;      /**< Connection handle */
-	int8_t                   rssi;        /**< Received Signal Strength Indication in dBm. */
-}BLE_EvtRssiChanged;
+typedef struct
+{
+  BLE_GapConnHandle        handle;      /**< Connection handle */
+  int8_t                   rssi;        /**< Received Signal Strength Indication in dBm. */
+} BLE_EvtRssiChanged;
 
 /**@brief Event structure for @ref BLE_GAP_EVENT_DATA_LENGTH_UPDATE
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_DATA_LENGTH_UPDATE, and the member evtData is point to @ref BLE_EvtDataLengthUpdate structure.
  */
-typedef struct {
-	uint16_t maxTx; /**< Maximum number of payload octets that a Controller supports for transmission of a single Link Layer Data Channel PDU. */
-	uint16_t maxRx; /**< Maximum number of payload octets that a Controller supports for reception of a single Link Layer Data Channel PDU. */
-	uint16_t maxTxTime; /**< Maximum time, in microseconds, that a Controller supports for transmission of a single Link Layer Data Channel PDU. */
-	uint16_t maxRxTime; /**< Maximum time, in microseconds, that a Controller supports for reception of a single Link Layer Data Channel PDU. */
-}BLE_EvtDataLengthUpdate;
+typedef struct
+{
+  uint16_t maxTx; /**< Maximum number of payload octets that a Controller supports for transmission of a single Link Layer Data Channel PDU. */
+  uint16_t maxRx; /**< Maximum number of payload octets that a Controller supports for reception of a single Link Layer Data Channel PDU. */
+  uint16_t maxTxTime; /**< Maximum time, in microseconds, that a Controller supports for transmission of a single Link Layer Data Channel PDU. */
+  uint16_t maxRxTime; /**< Maximum time, in microseconds, that a Controller supports for reception of a single Link Layer Data Channel PDU. */
+} BLE_EvtDataLengthUpdate;
 
 /**@brief Event Structure for @ref BLE_GAP_EVENT_PHY_UPDATE_REQEST and @ref BLE_GAP_EVENT_PHY_UPDATE
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GAP_EVENT_PHY_UPDATE_REQEST and @ref BLE_GAP_EVENT_PHY_UPDATE, and the member evtData is point to @ref BLE_EvtPhyUpdate structure.
 */
 typedef struct
 {
-	uint8_t status; /**< Status of the procedure, see @ref BLE_HCI_STATUS_CODES.*/
-	uint8_t txPhy; /**< TX PHY for this connection, see @ref BLE_GAP_PHYS. */
-	uint8_t rxPhy; /**< RX PHY for this connection, see @ref BLE_GAP_PHYS. */
+  uint8_t status; /**< Status of the procedure, see @ref BLE_HCI_STATUS_CODES.*/
+  uint8_t txPhy; /**< TX PHY for this connection, see @ref BLE_GAP_PHYS. */
+  uint8_t rxPhy; /**< RX PHY for this connection, see @ref BLE_GAP_PHYS. */
 }BLE_EvtPhyUpdate;
 
 
 
 /** @} ble_datatypes */
+
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
 
 /**
  * @defgroup ble_funcs Functions
@@ -1006,4 +1037,4 @@ int BLE_GapPhyUpdate(BLE_GapConnHandle connHandle, BLE_GapPhys *gapPhys);
 }
 #endif  /* __cplusplus */
 /** @} ble_gap */
-#endif  /* BLE_GAP_H */
+#endif  /* __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_GAP_H */

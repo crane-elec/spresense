@@ -1,8 +1,7 @@
 /****************************************************************************
- * apps/include/ble/ble_comm.h
+ * modules/bluetooth/hal/nrf52/include/ble/ble_comm.h
  *
- *   Copyright (C) 2016 Sony Corporation. All rights reserved.
- *   Author: Wen, Yuchi <Yuchi.Wen@sony.com>
+ *   Copyright 2018 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,9 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name NuttX nor Sony nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+ *    the names of its contributors may be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -32,12 +32,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 /**
  * @file       ble_comm.h
  */
 
-#ifndef BLE_COMM_H
-#define BLE_COMM_H
+#ifndef __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_COMM_H
+#define __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_COMM_H
 
 /**
  * @defgroup BLE Bluetooth LE
@@ -47,9 +48,9 @@
  * @{
  */
 
-/*-----------------------------------------------------------------------------
- * include files
- *---------------------------------------------------------------------------*/
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
 
 #include <stdint.h>
 #include <errno.h>
@@ -130,63 +131,67 @@ extern "C" {
 
 /**@brief BLE event types
  */
-typedef enum BLE_EventTypes_t {
-	BLE_EVENT_TX_COMPLETE = BLE_EVENT_BASE,             /**< Transmission Complete. */
-	BLE_GAP_EVENT_CONNECTED = BLE_GAP_EVENT_BASE,       /**< Connection established, see @ref BLE_EvtConnected */
-	BLE_GAP_EVENT_CONN_PARAM_UPDATE,                    /**< Connection parameters updated, see @ref BLE_EvtConnParamUpdate */
-	BLE_GAP_EVENT_CONN_PARAM_UPDATE_REQUEST,            /**< Connection Parameter Update Request, see @ref BLE_EvtConnParamUpdate */
-	BLE_GAP_EVENT_DISCONNECTED,                         /**< Disconnected from peer, see @ref BLE_EvtDisconnected */
-	BLE_GAP_EVENT_EXCHANGE_FEATURE,                     /**< Exchange pairing feature, see @ref BLE_EvtExchangeFeature */
-	BLE_GAP_EVENT_DISPLAY_PASSKEY,                      /**< Display a passkey to user, see @ref BLE_EvtDisplayPasskey */
-	BLE_GAP_EVENT_AUTH_STATUS,                          /**< Authentication procedure completed with status, see @ref BLE_EvtAuthStatus */
-	BLE_GAP_EVENT_ADV_REPORT,                           /**< Advertising report, see @ref BLE_EvtAdvReportData */
-	BLE_GAP_EVENT_AUTH_KEY_REQUEST,                     /**< Request to provide an authentication key, see @ref BLE_EvtAuthKey */
-	BLE_GAP_EVENT_CONN_SEC_UPDATE,                      /**< Connection security updated */
-	BLE_GAP_EVENT_TIMEOUT,                              /**< Operation is timeout, see @ref BLE_EvtTimeout */
-	BLE_GAP_EVENT_RSSI_CHANGED,                         /**< RSSI report, see @ref BLE_EvtRssiChanged */
-	BLE_GAP_EVENT_DATA_LENGTH_UPDATE,                   /**< Data Length Update. see @ref BLE_EvtDataLengthUpdate */
-	BLE_GAP_EVENT_PHY_UPDATE_REQUEST,                   /**< PHY Update Request. Reply with @ref BLE_GapPhyUpdate. See @ref BLE_EvtPhyUpdate. */
-	BLE_GAP_EVENT_PHY_UPDATE,                           /**< PHY Update Procedure is complete. See @ref BLE_EvtPhyUpdate. */
-	BLE_GATTS_EVENT_WRITE = BLE_GATTS_EVENT_BASE,       /**< Write operation performed for peer, see @ref BLE_EvtGattsWrite */
-	BLE_GATTS_EVENT_CFM,                                /**< Confirmation event of indication operation, see @ref BLE_EvtGattsIndConfirm */
-	BLE_GATTS_EVENT_SYS_ATTR_MISSING,                   /**< A persistent system attribute access is fail. Delete peer's bond info in GATT client and re-connect */
-	BLE_GATTS_EVENT_TIMEOUT,                            /**< Timeout. see @ref BLE_EvtTimeout */
-	BLE_GATTS_EVENT_EXCHANGE_MTU,                       /**< Exchange MTU request received, see @ref BLE_EvtGattsExchangeMTU */
-	BLE_GATTC_EVENT_DBDISCOVERY = BLE_GATTC_EVENT_BASE, /**< Attribute database discovery event, see @ref BLE_EvtGattcDbDiscovery */
-	BLE_GATTC_EVENT_READ,                               /**< Read characteristic response event, see @ref BLE_EvtGattcRead */
-	BLE_GATTC_EVENT_WRITE_RSP,                          /**< Write characteristic response event, see @ref BLE_EvtGattcWriteRsp */
-	BLE_GATTC_EVENT_NTFIND,                             /**< Notification/Indication event from GATT server, see @ref BLE_EvtGattcNtfInd */
+typedef enum BLE_EventTypes_t
+{
+  BLE_EVENT_TX_COMPLETE = BLE_EVENT_BASE,             /**< Transmission Complete. */
+  BLE_GAP_EVENT_CONNECTED = BLE_GAP_EVENT_BASE,       /**< Connection established, see @ref BLE_EvtConnected */
+  BLE_GAP_EVENT_CONN_PARAM_UPDATE,                    /**< Connection parameters updated, see @ref BLE_EvtConnParamUpdate */
+  BLE_GAP_EVENT_CONN_PARAM_UPDATE_REQUEST,            /**< Connection Parameter Update Request, see @ref BLE_EvtConnParamUpdate */
+  BLE_GAP_EVENT_DISCONNECTED,                         /**< Disconnected from peer, see @ref BLE_EvtDisconnected */
+  BLE_GAP_EVENT_EXCHANGE_FEATURE,                     /**< Exchange pairing feature, see @ref BLE_EvtExchangeFeature */
+  BLE_GAP_EVENT_DISPLAY_PASSKEY,                      /**< Display a passkey to user, see @ref BLE_EvtDisplayPasskey */
+  BLE_GAP_EVENT_AUTH_STATUS,                          /**< Authentication procedure completed with status, see @ref BLE_EvtAuthStatus */
+  BLE_GAP_EVENT_ADV_REPORT,                           /**< Advertising report, see @ref BLE_EvtAdvReportData */
+  BLE_GAP_EVENT_AUTH_KEY_REQUEST,                     /**< Request to provide an authentication key, see @ref BLE_EvtAuthKey */
+  BLE_GAP_EVENT_CONN_SEC_UPDATE,                      /**< Connection security updated */
+  BLE_GAP_EVENT_TIMEOUT,                              /**< Operation is timeout, see @ref BLE_EvtTimeout */
+  BLE_GAP_EVENT_RSSI_CHANGED,                         /**< RSSI report, see @ref BLE_EvtRssiChanged */
+  BLE_GAP_EVENT_DATA_LENGTH_UPDATE,                   /**< Data Length Update. see @ref BLE_EvtDataLengthUpdate */
+  BLE_GAP_EVENT_PHY_UPDATE_REQUEST,                   /**< PHY Update Request. Reply with @ref BLE_GapPhyUpdate. See @ref BLE_EvtPhyUpdate. */
+  BLE_GAP_EVENT_PHY_UPDATE,                           /**< PHY Update Procedure is complete. See @ref BLE_EvtPhyUpdate. */
+  BLE_GATTS_EVENT_WRITE = BLE_GATTS_EVENT_BASE,       /**< Write operation performed for peer, see @ref BLE_EvtGattsWrite */
+  BLE_GATTS_EVENT_CFM,                                /**< Confirmation event of indication operation, see @ref BLE_EvtGattsIndConfirm */
+  BLE_GATTS_EVENT_SYS_ATTR_MISSING,                   /**< A persistent system attribute access is fail. Delete peer's bond info in GATT client and re-connect */
+  BLE_GATTS_EVENT_TIMEOUT,                            /**< Timeout. see @ref BLE_EvtTimeout */
+  BLE_GATTS_EVENT_EXCHANGE_MTU,                       /**< Exchange MTU request received, see @ref BLE_EvtGattsExchangeMTU */
+  BLE_GATTC_EVENT_DBDISCOVERY = BLE_GATTC_EVENT_BASE, /**< Attribute database discovery event, see @ref BLE_EvtGattcDbDiscovery */
+  BLE_GATTC_EVENT_READ,                               /**< Read characteristic response event, see @ref BLE_EvtGattcRead */
+  BLE_GATTC_EVENT_WRITE_RSP,                          /**< Write characteristic response event, see @ref BLE_EvtGattcWriteRsp */
+  BLE_GATTC_EVENT_NTFIND,                             /**< Notification/Indication event from GATT server, see @ref BLE_EvtGattcNtfInd */
 } BLE_EventTypes;
-
 
 /**@brief BLE initialize parameter
  */
-typedef struct BLE_InitializeParams_t {
-	uint8_t role; /**< BLE device work role. Peripheral, central or peripheral & central. @ref BLE_ROLE_PERIPHERAL, @ref BLE_ROLE_CENTRAL, @ref BLE_ROLE_PERIPHERAL_AND_CENTRAL*/
-	BT_FIRMWARE_INFO info;
+typedef struct BLE_InitializeParams_t
+{
+  uint8_t role; /**< BLE device work role. Peripheral, central or peripheral & central. @ref BLE_ROLE_PERIPHERAL, @ref BLE_ROLE_CENTRAL, @ref BLE_ROLE_PERIPHERAL_AND_CENTRAL*/
+  BT_FIRMWARE_INFO info;
 } BLE_InitializeParams;
 
 /**@brief Event callback structure
  */
-typedef struct BLE_Evt_t {
-	uint8_t opcode;
-	uint8_t group;
-	BLE_EventTypes evtHeader;                      /**< Event header */
-	uint32_t       evtDataSize;                    /**< Event data size */
-	uint8_t        evtData[BLE_EVT_DAT_SIZE_MAX];  /**< Event data */
+typedef struct BLE_Evt_t
+{
+  uint8_t opcode;
+  uint8_t group;
+  BLE_EventTypes evtHeader;                      /**< Event header */
+  uint32_t       evtDataSize;                    /**< Event data size */
+  uint8_t        evtData[BLE_EVT_DAT_SIZE_MAX];  /**< Event data */
 } BLE_Evt;
 
-typedef struct BLE_EvtTxComplete_t {
-	uint16_t connHandle; /**< Connection handle */
-	uint8_t  count;      /**< Number of packets transmitted. */
-	uint8_t  role;       /**<Transmitted role. */
+typedef struct BLE_EvtTxComplete_t
+{
+  uint16_t connHandle; /**< Connection handle */
+  uint8_t  count;      /**< Number of packets transmitted. */
+  uint8_t  role;       /**<Transmitted role. */
 } BLE_EvtTxComplete;
 
 /**@brief Event context structure
  */
-typedef struct BLE_EvtCtx_t {
-	BLE_Evt evt;   /**< Event callback structure */
-	void    *data; /**< Event callback data. This field is totally user defined. For example you can define data as your application state. */
+typedef struct BLE_EvtCtx_t
+{
+  BLE_Evt evt;   /**< Event callback structure */
+  void    *data; /**< Event callback data. This field is totally user defined. For example you can define data as your application state. */
 } BLE_EvtCtx;
 
 /**@brief Event callback function
@@ -198,6 +203,10 @@ typedef void (*BLE_EvtHandler)(BLE_Evt *bleEvt, void *data);
 typedef int (*BLE_EfCb)(void *data);
 
 /** @} ble_datatypes */
+
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
 
 /**
  * @defgroup ble_funcs Functions
@@ -260,4 +269,4 @@ int BLE_CommonFinalizeStack(void);
 }
 #endif  /* __cplusplus */
 /** @} ble_comm */
-#endif  /* BLE_COMM_H */
+#endif  /* __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_COMM_H */
