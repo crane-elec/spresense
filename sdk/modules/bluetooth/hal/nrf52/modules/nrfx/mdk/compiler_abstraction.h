@@ -51,7 +51,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #define NRF_STRING_CONCATENATE(lhs, rhs) NRF_STRING_CONCATENATE_IMPL(lhs, rhs)
 #endif
 
-#if defined ( __NRF_CC_ARM )
+#if defined ( __CC_ARM )
 
     #ifndef __ASM
         #define __ASM               __asm
@@ -82,6 +82,43 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #ifndef NRF_STATIC_ASSERT
         #define NRF_STATIC_ASSERT(cond, msg) \
             ;enum { NRF_STRING_CONCATENATE(static_assert_on_line_, __LINE__) = 1 / (!!(cond)) }
+    #endif
+    
+#elif defined (__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
+
+    #ifndef __ASM
+        #define __ASM               __asm
+    #endif
+
+    #ifndef __INLINE
+        #define __INLINE            __inline
+    #endif
+
+    #ifndef __WEAK
+        #define __WEAK              __attribute__((weak))
+    #endif
+
+    #ifndef __ALIGN
+        #define __ALIGN(n)          __attribute__((aligned(n)))
+    #endif
+
+    #ifndef __PACKED
+        #define __PACKED            __attribute__((packed, aligned(1)))
+    #endif
+
+    #ifndef __UNUSED
+        #define __UNUSED            __attribute__((unused))
+    #endif
+
+    #define GET_SP()                __current_sp()
+
+    #ifndef NRF_STATIC_ASSERT
+        #ifdef __cplusplus
+            #ifndef _Static_assert
+                #define _Static_assert static_assert
+            #endif
+        #endif
+        #define NRF_STATIC_ASSERT(cond, msg) _Static_assert(cond, msg)
     #endif
 
 #elif defined ( __ICCARM__ )

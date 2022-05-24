@@ -1,20 +1,43 @@
-/*##############################################################################
- * Copyright 2015 Sony Corporation.
- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Sony Corporation.
- * No part of this file may be copied, modified, sold, and distributed in any
- * form or by any means without prior explicit permission in writing from
- * Sony Corporation.
- */
-/**
- * @file       ble_gatts.c
- * @note       ble gatt server interface source file
- * @attention
- */
-/*############################################################################*/
+/****************************************************************************
+ * modules/bluetooth/hal/nrf52/ble_gatts.c
+ *
+ *   Copyright 2018 Sony Semiconductor Solutions Corporation
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+ *    the names of its contributors may be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
 
-/******************************************************************************
- * Include
- *****************************************************************************/
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
+#include <nuttx/config.h>
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -22,8 +45,9 @@
 #include <ble/ble_gatts.h>
 #include "ble.h"
 #include "ble_comm_internal.h"
+#include <bluetooth/ble_gatt.h>
 
-//#define BLE_DBGPRT_ENABLE
+// #define BLE_DBGPRT_ENABLE
 #ifdef BLE_DBGPRT_ENABLE
 #include <stdio.h>
 #define BLE_PRT printf
@@ -51,7 +75,7 @@ extern bleCommMem commMem;
 /******************************************************************************
  * Function
  *****************************************************************************/
-static int setPermission(ble_gap_conn_sec_mode_t *perm, BLE_SecMode secMode)
+static int setPermission(ble_gap_conn_sec_mode_t *perm, BLE_SEC_MODE secMode)
 {
 	int ret = 0;
 	switch( secMode ) {
@@ -80,7 +104,7 @@ static int setPermission(ble_gap_conn_sec_mode_t *perm, BLE_SecMode secMode)
 	return ret;
 }
 
-int BLE_GattsAddService(BLE_GattsSrvType type, BLE_Uuid const* uuid, uint16_t* serviceHandle)
+int BLE_GattsAddService(BLE_GATT_TYPE type, BLE_Uuid const* uuid, uint16_t* serviceHandle)
 {
 	int ret      = BLE_SUCCESS;
 	int errCode = 0;
@@ -149,7 +173,7 @@ int BLE_GattsAddCharacteristic(uint16_t serviceHandle, BLE_CharMeta const* charM
 	ble_gatts_attr_md_t attrMd = {0};
 	ble_gatts_attr_md_t cccdMd = {0};
 	ble_gatts_attr_md_t sccdMd = {0};
-	BLE_SecMode         noAccessMode = BLE_SEC_MODE_NO_ACCESS;
+	BLE_SEC_MODE         noAccessMode = BLE_SEC_MODE_NO_ACCESS;
 	ble_gatts_char_handles_t charHandles = {0};
 
 	if( (charMeta == NULL) || (attrCharValue == NULL) || (attrCharValue->attrValue == NULL)) {
@@ -258,7 +282,9 @@ int BLE_GattsHandleValueNfyInd(uint16_t connHandle, BLE_GattsHandleValueNfyIndPa
 	uint16_t len = 0;
 	ble_gatts_hvx_params_t hvxParams = {0};
 
+	BLE_PRT("%s:connHandle :%d.\n", __func__, connHandle);
 	if( handleValueNfyInd == NULL) {
+		BLE_PRT("%s:handleValueNfyInd null.\n", __func__);
 		return -EINVAL;
 	}
 

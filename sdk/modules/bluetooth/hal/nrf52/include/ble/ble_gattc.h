@@ -1,8 +1,7 @@
 /****************************************************************************
- * apps/include/ble/ble_gattc.h
+ * modules/bluetooth/hal/nrf52/include/ble/ble_gattc.h
  *
- *   Copyright (C) 2016 Sony Corporation. All rights reserved.
- *   Author: Wen, Yuchi <Yuchi.Wen@sony.com>
+ *   Copyright 2018 Sony Semiconductor Solutions Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -14,9 +13,10 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name NuttX nor Sony nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * 3. Neither the name of Sony Semiconductor Solutions Corporation nor
+ *    the names of its contributors may be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -32,12 +32,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 /**
  * @file       ble_gattc.h
  */
 
-#ifndef BLE_GATTC_H
-#define BLE_GATTC_H
+#ifndef __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_GATTC_H
+#define __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_GATTC_H
 
 /**
  * @defgroup BLE Bluetooth LE GATT client
@@ -47,9 +48,9 @@
  * @{
  */
 
-/*-----------------------------------------------------------------------------
- * include files
- *---------------------------------------------------------------------------*/
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
 
 #include <stdint.h>
 #include <ble/ble_gatts.h>
@@ -66,14 +67,14 @@ extern "C" {
  * @{
  */
 
-#define BLE_DB_DISCOVERY_MAX_SRV          7 /**< Support Max services */
+// #define BLE_DB_DISCOVERY_MAX_SRV          10 /**< Support Max services */
 #define BLE_DB_DISCOVERY_MAX_CHAR_PER_SRV 4 /**< Support Max characteristics per service */
 #ifdef CONFIG_BCM20707
-#define MAX_VAL_DATA_LENGTH 512 /**< Max value data length. */
+#define MAX_VAL_DATA_LENGTH              512 /**< Max value data length. */
 #elif defined(CONFIG_BLUETOOTH_NRF52)
-#define MAX_VAL_DATA_LENGTH 247 /**< Max receive data length. */
+#define MAX_VAL_DATA_LENGTH              247 /**< Max receive data length. */
 #else
-#define MAX_VAL_DATA_LENGTH 20  /**< Max value data length. */
+#define MAX_VAL_DATA_LENGTH              20 /**< Max value data length. */
 #endif
 
 /**
@@ -106,113 +107,127 @@ extern "C" {
  */
 
 /**@brief BLE write operation */
-typedef enum {
-	BLE_GATTC_WRITE_CMD = 0,
-	BLE_GATTC_WRITE_REQ
-}BLE_GATTC_WRITE_OP;
+typedef enum
+{
+  BLE_GATTC_WRITE_CMD = 0,
+  BLE_GATTC_WRITE_REQ
+} BLE_GATTC_WRITE_OP;
 
 /**@brief GATTC handle range structure*/
- typedef struct{
-	uint16_t                startHandle; /**< Start handle */
-	uint16_t                endHandle;   /**< End handle */
-}BLE_GattcHandleRange;
+typedef struct
+{
+  uint16_t                startHandle; /**< Start handle */
+  uint16_t                endHandle;   /**< End handle */
+} BLE_GattcHandleRange;
 
 /**@brief GATTC characteristic structure*/
-typedef struct{
-	BLE_CharPrope           charPrope;      /**< Characteristic property */
-	uint8_t                 reserve;        /**< Reserve */
-	uint16_t                charValhandle;  /**< Characteristic value handle */
-	uint16_t                charDeclhandle; /**< Characteristic declaration handle */
-	BLE_Uuid                charValUuid;    /**< Characteristic value uuid (Not supported) */
-}BLE_GattcChar;
+typedef struct
+{
+  BLE_CHAR_PROP           charPrope;      /**< Characteristic property */
+  uint8_t                 reserve;        /**< Reserve */
+  uint16_t                charValhandle;  /**< Characteristic value handle */
+  uint16_t                charDeclhandle; /**< Characteristic declaration handle */
+  BLE_Uuid                charValUuid;    /**< Characteristic value uuid */
+} BLE_GattcChar;
 
 /**@brief GATTC discovered characteristic data structure
  */
-typedef struct{
-	uint16_t                cccdHandle;     /**< Handle of client configuration characteristic descriptor in characteristic */
-	uint8_t                 reserve[2];     /**< Reserve */
-	BLE_GattcChar           characteristic; /**< Characteristic information */
-}BLE_GattcDbDiscChar;
+typedef struct
+{
+  uint16_t                cccdHandle;     /**< Handle of client configuration characteristic descriptor in characteristic */
+  uint8_t                 reserve[2];     /**< Reserve */
+  BLE_GattcChar           characteristic; /**< Characteristic information */
+} BLE_GattcDbDiscChar;
 
 /**@brief GATTC discovered service data structure
  */
-typedef struct{
-	uint8_t                 charCount;                                          /**< Discovered characteristic count in service */
-	uint8_t                 reserve[3];                                         /**< Reserve */
-	BLE_GattcHandleRange    srvHandleRange;                                     /**< The handle range of this service */
-	BLE_GattcDbDiscChar     characteristics[BLE_DB_DISCOVERY_MAX_CHAR_PER_SRV]; /**< Discovered characteristics in this service */
-	BLE_Uuid                srvUuid;                                            /**< UUID of discovered service (Not supported) */
-}BLE_GattcDbDiscSrv;
+typedef struct
+{
+  uint8_t                 charCount;                                          /**< Discovered characteristic count in service */
+  uint8_t                 reserve[3];                                         /**< Reserve */
+  BLE_GattcHandleRange    srvHandleRange;                                     /**< The handle range of this service */
+  BLE_GattcDbDiscChar     characteristics[BLE_DB_DISCOVERY_MAX_CHAR_PER_SRV]; /**< Discovered characteristics in this service */
+  BLE_Uuid                srvUuid;                                            /**< UUID of discovered service */
+} BLE_GattcDbDiscSrv;
 
 /**@brief GATTC discovered attribute database data structure
  */
-typedef struct{
-	uint8_t                 srvCount;                           /**< Discovered services count */
-	uint8_t                 reserve;                            /**< Reserve */
-	uint16_t                connHandle;                         /**< Connection handle */
-	BLE_GattcDbDiscSrv      services[BLE_DB_DISCOVERY_MAX_SRV]; /**< Discovered services in attribute database */
-}BLE_GattcDbDiscovery;
+typedef struct
+{
+  uint8_t                 srvCount;                           /**< Discovered services count */
+  uint8_t                 reserve;                            /**< Reserve */
+  uint16_t                connHandle;                         /**< Connection handle */
+  BLE_GattcDbDiscSrv      services[BLE_DB_DISCOVERY_MAX_SRV]; /**< Discovered services in attribute database */
+} BLE_GattcDbDiscovery;
 
 /**@brief GATTC read parameters */
-typedef struct{
-	uint16_t charValHandle; /**< Characteristic value handle */
-}BLE_GattcReadParams;
+typedef struct
+{
+  uint16_t charValHandle; /**< Characteristic value handle */
+} BLE_GattcReadParams;
 
 /**@brief GATTC write parameters */
-typedef struct{
-	BLE_GATTC_WRITE_OP      writeOp;       /**< Write operation */
-	uint16_t                charValHandle; /**< Characteristic value handle */
-	uint16_t                charValLen;    /**< Characteristic value data length */
-	uint8_t                 *charValData;  /**< Characteristic value data content */
-}BLE_GattcWriteParams;
+typedef struct
+{
+  BLE_GATTC_WRITE_OP      writeOp;       /**< Write operation */
+  uint16_t                charValHandle; /**< Characteristic value handle */
+  uint16_t                charValLen;    /**< Characteristic value data length */
+  uint8_t                 *charValData;  /**< Characteristic value data content */
+} BLE_GattcWriteParams;
+
 
 /**@brief GATTC attribute database discovery event structure
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GATTC_EVENT_DBDISCOVERY, and the member evtData is point to @ref BLE_EvtGattcDbDiscovery structure.
  */
 typedef struct
 {
-	uint8_t                 result;       /**< GATTC attribute database discovery result*/
-	uint8_t                 reserve;      /**< Reserve */
-	uint16_t                connHandle;   /**< Connection handle */
-	union{
-		uint32_t             reason;      /**< Indicate db discovery failed reason */
-		BLE_GattcDbDiscovery dbDiscovery; /**< Discovered db information */
-	}params;     /**< params union */
-}BLE_EvtGattcDbDiscovery;
+  uint8_t                 result;       /**< GATTC attribute database discovery result*/
+  uint8_t                 reserve;      /**< Reserve */
+  uint16_t                connHandle;   /**< Connection handle */
+  union
+  {
+    uint32_t             reason;      /**< Indicate db discovery failed reason */
+    BLE_GattcDbDiscovery dbDiscovery; /**< Discovered db information */
+  } params;     /**< params union */
+} BLE_EvtGattcDbDiscovery;
 
 /**@brief GATTC read characteristic response event structure
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GATTC_EVENT_READ, and the member evtData is point to @ref BLE_EvtGattcRead structure.
  * */
 typedef struct
 {
-	uint16_t                connHandle;    /**< Connection handle */
-	uint16_t                charValHandle; /**< Characteristic value handle */
-	uint16_t                charValLen;    /**< Characteristic value data length */
-	uint8_t                 charValData[MAX_VAL_DATA_LENGTH];  /**< Characteristic value data content */
-}BLE_EvtGattcRead;
+  uint16_t                connHandle;    /**< Connection handle */
+  uint16_t                charValHandle; /**< Characteristic value handle */
+  uint16_t                charValLen;    /**< Characteristic value data length */
+  uint8_t                 charValData[MAX_VAL_DATA_LENGTH];  /**< Characteristic value data content */
+} BLE_EvtGattcRead;
 
 /**@brief GATTC read characteristic response event structure
  */
 typedef struct
 {
-	uint16_t                connHandle;    /**< Connection handle */
-	uint16_t                charValHandle; /**< Characteristic value handle */
-	uint8_t                 status;        /**< 0 success, other failed */
-}BLE_EvtGattcWriteRsp;
+  uint16_t                connHandle;    /**< Connection handle */
+  uint16_t                charValHandle; /**< Characteristic value handle */
+  uint8_t                 status;        /**< 0 success, other failed */
+} BLE_EvtGattcWriteRsp;
 
 /**@brief GATTC notification/indication event structure
  * @details When the event coming from the stack to the application, the @ref BLE_Evt structure member evtHeader is set to @ref BLE_GATTC_EVENT_NTFIND, and the member evtData is point to @ref BLE_EvtGattcNtfInd structure.
  */
 typedef struct
 {
-	uint16_t                connHandle;                       /**< Connection handle */
-	BLE_GattNtyIndType      type;                             /**< Indication or notification */
-	uint16_t                attrHandle;                       /**< Attribute value data length */
-	uint16_t                attrValLen;                       /**< Attribute value data length */
-	uint8_t                 attrValData[MAX_VAL_DATA_LENGTH]; /**< Attribute value data content */
-}BLE_EvtGattcNtfInd;
+  uint16_t                connHandle;                       /**< Connection handle */
+  BLE_GattNtyIndType      type;                             /**< Indication or notification */
+  uint16_t                attrHandle;                       /**< Attribute value data length */
+  uint16_t                attrValLen;                       /**< Attribute value data length */
+  uint8_t                 attrValData[MAX_VAL_DATA_LENGTH]; /**< Attribute value data content */
+} BLE_EvtGattcNtfInd;
 
 /** @} ble_datatypes */
+
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
 
 /**
  * @defgroup ble_funcs Functions
@@ -232,6 +247,26 @@ typedef struct
  *
  */
 int BLE_GattcStartDbDiscovery(uint16_t connHandle);
+
+/**
+ * @defgroup ble_funcs Functions
+ * @{
+ */
+
+/**@brief   GATT client continue attribute database discovery
+ * @details This call allows the application to start attribute database discovery.The following events may be triggered: @ref  BLE_GATTC_EVENT_DBDISCOVERY, @ref BLE_GATTC_EVENT_NTFIND.
+ * @param[in]  connHandle: Connection handle
+ * @param[in]  startHandle: start handle of discover
+ *
+ * @par Blocking
+ *     Yes
+ * @par Context
+ *     Task
+ * @par Reentrant
+ *     No
+ *
+ */
+int BLE_GattcContinueDbDiscovery(uint16_t connHandle, uint16_t startHandle);
 
 /**@brief GATT client read characteristic
  * @details This call allows the application to read a characteristic. The following events may be triggered: @ref BLE_GATTC_EVENT_READ.
@@ -307,4 +342,4 @@ int BLE_GattcRegisterUuid128(BLE_Uuid128* uuid128, uint8_t* type);
 }
 #endif  /* __cplusplus */
 /** @} ble_gattc */
-#endif  /* BLE_GATTC_H */
+#endif  /* __MODULES_BLUETOOTH_HAL_NRF52_INCLUDE_BLE_BLE_GATTC_H */

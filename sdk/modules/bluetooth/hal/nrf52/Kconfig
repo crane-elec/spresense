@@ -49,5 +49,18 @@ config UART2_PARITY
 
 endif
 
+config NRF52_LE
+	bool
+	default BLUETOOTH_LE
+	---help---
+		This option enabling Cypress NRF52 Low Energy HAL.
+
+if NRF52_LE
+config NRF52_LE_GATT
+	bool
+	default BLUETOOTH_LE_GATT
+	---help---
+		This option enabling Cypress NRF52 LE GATT HAL.
+endif
 endif
 
