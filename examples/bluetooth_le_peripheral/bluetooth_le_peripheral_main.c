@@ -111,8 +111,8 @@ static struct ble_gatt_peripheral_ops_s ble_gatt_peripheral_ops =
 
 static BT_ADDR local_addr               = {{0x19, 0x84, 0x06, 0x14, 0xAB, 0xCD}};
 
-static char local_bt_name[BT_NAME_LEN]  = "SONY_BT";
-static char local_ble_name[BT_NAME_LEN] = "SONY_BLE";
+static char local_bt_name[BT_NAME_LEN]  = "BT1507";
+static char local_ble_name[BT_NAME_LEN] = "BLE1507";
 
 static struct bt_acl_state_s *s_bt_acl_state = NULL;
 
